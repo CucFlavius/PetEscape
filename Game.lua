@@ -27,6 +27,7 @@ Zee.DinoGame.Canvas.Environment = Zee.DinoGame.Canvas.Environment or {};
 Zee.DinoGame.Player = Zee.DinoGame.Player or {}
 Zee.DinoGame.Physics = Zee.DinoGame.Physics or {}
 Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
+Zee.DinoGame.Cutscene = Zee.DinoGame.Cutscene or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
@@ -34,6 +35,7 @@ local Environment = Zee.DinoGame.Canvas.Environment;
 local Player = Zee.DinoGame.Player;
 local Physics = Zee.DinoGame.Physics;
 local LevelGenerator = Zee.DinoGame.LevelGenerator;
+local Cutscene = Zee.DinoGame.Cutscene;
 Canvas.Ground = {};
 
 --------------------------------------
@@ -61,6 +63,7 @@ Player.jumpHeight = 0;
 Player.yForce = 0;
 Player.yForceDiv = 10;
 Game.paused = false;
+Game.over = false;
 Game.speed = 2;
 Game.debugStep = false;
 Game.travelledDistance = 0;
@@ -68,6 +71,7 @@ LevelGenerator.puzzleLength = 0;
 LevelGenerator.puzzlePosition = 0;
 LevelGenerator.totalObjects = 0;
 Physics.groundCollided = false;
+Cutscene.current = "None";
 
 --------------------------------------
 --				Settings			--
@@ -92,6 +96,7 @@ Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "
 Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
 Player.jumpLandAnimationSpeed = 1;					-- The animation speed for the character "JumpEnd" animation, playing at speed 1 feels best tbh
 Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character animation not play at full Game.speed so his legs doen't look like sonic's at higher game speeds
+Player.deathZone = 31;
 Game.DEBUG_TrailCount = 40;
 LevelGenerator.objectPoolSize = 10;
 
@@ -142,7 +147,7 @@ Game.Puzzles =
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
 		},
-		length = 1.2,
+		length = 1.27,
 	},
 
 	["4CratesLine"] = 
@@ -151,11 +156,11 @@ Game.Puzzles =
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
-			{ dName = "Crate", position = { x = 1.2, y = 0 } },
-			{ dName = "Crate", position = { x = 1.2 * 2, y = 0 } },
-			{ dName = "Crate", position = { x = 1.2 * 3, y = 0 } },
+			{ dName = "Crate", position = { x = 1.27, y = 0 } },
+			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
+			{ dName = "Crate", position = { x = 1.27 * 3, y = 0 } },
 		},
-		length = 1.2 * 4;
+		length = 1.27 * 4;
 	},
 
 	["4CratesTetris"] = 
@@ -164,15 +169,18 @@ Game.Puzzles =
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
-			{ dName = "Crate", position = { x = 1.2, y = 0 } },
-			{ dName = "Crate", position = { x = 1.2, y = 1.2 } },
-			{ dName = "Crate", position = { x = 1.2 * 2, y = 0 } },
+			{ dName = "Crate", position = { x = 1.27, y = 0 } },
+			{ dName = "Crate", position = { x = 1.27, y = 1.24 } },
+			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
 		},
-		length = 1.2 * 4 + 6, 		-- leaving some space blank for testing purposes (DELETE the 6)
+		length = 1.27 * 4 + 6, 		-- leaving some space blank for testing purposes (DELETE the 6)
 	},
-}
+};
 
-Game.CharacterDisplayIDs = { 90029 }
+Game.CharacterDisplayIDs = 
+{ 
+	90029, -- 2459259 creature/babyraptor/babyraptor.m2
+};
 
 --------------------------------------
 --		       Game State			--
@@ -185,6 +193,55 @@ end
 function Game.Resume()
 	Game.paused = false;
 	Canvas.character:SetPaused(false);
+end
+
+function Game.Over(died)
+	Game.over = true;
+	if died == true then
+		Cutscene.Play("Death");
+	end
+end
+
+function Game.Restart()
+	Canvas.character:Show();
+	Game.Resume();
+	Game.over = false;
+	Canvas.character:SetPosition(0, 21, 0);
+	Canvas.character:SetAlpha(1);
+    Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
+	LevelGenerator.Clear();
+
+	-- I probably don't need to reset all of these...
+	Player.screenX = 160;
+	Player.screenY = 90;
+	Player.jumping = false;
+	Player.falling = false;
+	Player.canJump = true;
+	Player.landing = false;
+	Player.grounded = true;
+	Player.isHeldInPlace = false;
+	Player.jumpHold = false;
+	Player.jumpRelease = false;
+	Player.worldPosY = 0;
+	Player.ground = 0;
+	Player.posX = 22;
+	Player.jumpTime = 0;
+	Player.currentAnimation = "Run";
+	Player.jumpStartPosition = 0;
+	Player.currentJumpHeight = 0;
+	Player.currentLandTime = 0;
+	Player.jumpHeight = 0;
+	Player.yForce = 0;
+	Player.yForceDiv = 10;
+	Game.paused = false;
+	Game.over = false;
+	Game.speed = 2;
+	Game.debugStep = false;
+	Game.travelledDistance = 0;
+	LevelGenerator.puzzleLength = 0;
+	LevelGenerator.puzzlePosition = 0;
+	Physics.groundCollided = false;
+	Cutscene.current = "None";
 end
 
 --------------------------------------
@@ -219,7 +276,10 @@ function LevelGenerator.Update()
 end
 
 function LevelGenerator.SpawnPuzzle()
-	local puzzle = Game.Puzzles["4CratesTetris"];
+	local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris" };
+	local pick = math.floor(LevelGenerator.random() * table.getn(puzzles)) + 1;
+	local puzzle = Game.Puzzles[puzzles[pick]];
+
 	LevelGenerator.puzzleLength = puzzle.length;
 	for k = 1, puzzle.objectCount, 1 do
 		LevelGenerator.SpawnObject(puzzle.objects[k].dName, puzzle.objects[k].position)
@@ -268,6 +328,27 @@ function LevelGenerator.CreateNewGameObject()
 		actor = Canvas.mainScene:CreateActor("GameObject_" .. idx),
 	}
 	return idx;
+end
+
+function LevelGenerator.Clear()
+	for k = 1, LevelGenerator.totalObjects, 1 do
+		Game.GameObjects[k].active = false;
+		Game.GameObjects[k].position.x = 100;
+		Game.GameObjects[k].position.y = 100;
+		Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x, Game.GameObjects[k].position.y);
+	end
+end
+
+local A1, A2 = 727595, 798405  -- 5^17=D20*A1+A2
+local D20, D40 = 1048576, 1099511627776  -- 2^20, 2^40
+local X1, X2 = 0, 1
+function LevelGenerator.random()
+    local U = X2*A2
+    local V = (X1*A2 + X2*A1) % D20
+    V = (V*D20 + U) % D40
+    X1 = math.floor(V/D20)
+    X2 = V - X1*D20
+    return V/D40
 end
 
 --------------------------------------
@@ -427,7 +508,7 @@ function Canvas.CreateMainScene()
     Canvas.mainScene:SetCameraPosition(-120, 0, 7);
 	Canvas.mainScene:SetFrameLevel(101);
 	Canvas.mainScene:SetCameraFarClip(1000);
-	Canvas.mainScene:SetLightDirection(0.5, 1, 1);
+	Canvas.mainScene:SetLightDirection(0.5, 1, -1);
 
 	-- Create character actor --
     Canvas.character = Canvas.mainScene:CreateActor("character");
@@ -454,6 +535,45 @@ end
 --		  	     UI					--
 --------------------------------------
 
+
+--------------------------------------
+--             Cutscene             --
+--------------------------------------
+function Cutscene.Play(name)
+	Cutscene.current = name;
+	Cutscene.isPlaying = true;
+	Cutscene.time = 0;
+end
+
+function Cutscene.Stop()
+	Cutscene.current = "None";
+	Cutscene.isPlaying = false;
+end
+
+function Cutscene.Update()
+	if Cutscene.isPlaying == true then
+		if Cutscene.current == "Death" then
+			Cutscene.time = Cutscene.time + 1;
+			if Cutscene.time == 1 then
+				Player.posX, Player.posY, Player.posZ = Canvas.character:GetPosition();
+				Player.SetAnimation("CombatWound", 2);
+			elseif Cutscene.time == 20 then
+				Canvas.character:SetPaused(true);
+			end
+			if Cutscene.time > 30 and Cutscene.time < 200 then
+				-- Animate character going up and then down, falling off the screen
+				-- I know at least a dozen games that do this, time to pay homage ;)
+				Canvas.character:SetPosition(Player.posX - ((Cutscene.time - 30) / 10), Player.posY - ((Cutscene.time - 30) / 10), Player.posZ + (sin((Cutscene.time - 30) * 2) * 15) - ((Cutscene.time - 30) / 10));
+			elseif Cutscene.time == 200 then
+				-- Animation complete, hide the character actor, stop the cutscene and open the game over UI
+				Canvas.character:Hide();
+				Cutscene.Stop();
+
+				Game.Restart(); -- Just restarting the game for now, UI is the last thing I'll mess with
+			end
+		end
+	end
+end
 
 --------------------------------------
 --		  	  DEBUGGING				--
@@ -527,7 +647,7 @@ function Player.KeyPress(self, key)
 
 		Player.inputFrame:SetPropagateKeyboardInput(false);
 
-		if Player.canJump == true then
+		if Player.canJump == true and Game.over == false then
 			Player.jumpStartPosition = Player.worldPosY;
 			Player.inputFrame:SetPropagateKeyboardInput(false);
 			Player.jumping = true;
@@ -743,7 +863,6 @@ function Physics.PlayerCollisionUpdate()
 			oz = oz * oScale;
 			
 			Physics.groundCollided = Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
-			--local frontCollided = Physics.FrontCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
 			if playerCol.x + py < objCol.x + oy + objCol.w and playerCol.x + py + playerCol.w > objCol.x + oy and playerCol.y + pz < objCol.y + oz + objCol.h and playerCol.y + pz + playerCol.h > objCol.y + oz then
 				-- collision detected!
 				Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
@@ -776,8 +895,8 @@ function Physics.PlayerCollided(px, py, pw, ph, ox, oy, ow, oh)
 end
 
 function Player.Update()
-	if Player.posX > 35 then
-		Game.Pause();		-- game over actually
+	if Player.posX > Player.deathZone then
+		Game.Over(true);
 	end
 
 	if Player.isHeldInPlace == true then
@@ -841,8 +960,14 @@ function Player.Update()
 				end
 			end
 		else
-			if Player.currentAnimation ~= "Run" then
-				Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
+			if Player.isHeldInPlace == true then
+				if Player.currentAnimation ~= "Stand" then
+					Player.SetAnimation("Stand", 1);
+				end
+			else
+				if Player.currentAnimation ~= "Run" then
+					Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
+				end
 			end
 		end
 	end
@@ -881,7 +1006,7 @@ end
 --			Update Loop				--
 --------------------------------------
 function Game.Update(self, elapsed)
-	if Game.paused == false or Game.debugStep == true then
+	if (Game.paused == false and Game.over == false) or Game.debugStep == true then
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
 		while (Game.timeSinceLastUpdate > Game.UPDATE_INTERVAL) do
 			Game.debugStep = false;
@@ -898,6 +1023,8 @@ function Game.Update(self, elapsed)
 			Game.timeSinceLastUpdate = Game.timeSinceLastUpdate - Game.UPDATE_INTERVAL;
 		end
 	end
+	-- Things that get updated even if game over or paused
+	Cutscene.Update();
 end
 
 
