@@ -27,12 +27,15 @@ Player.CurrentAnimation = "Run";
 Player.JumpStartPosition = 0;
 Player.CurrentJumpHeight = 0;
 Player.CurrentLandTime = 0;
+Player.Grounded = true;
 Game.paused = false;
 Game.speed = 2;
+Game.debugStep = false;
 
 --------------------------------------
 --				Settings			--
 --------------------------------------
+Game.devMode = true;
 Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
 Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
 Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
@@ -61,10 +64,31 @@ Game.DEBUG_TrailCount = 40;
 --------------------------------------
 Game.ObjectDefinitions = 
 {
-	["Crate"] = 	{ 
-				id = 2261922,
-				scale = 4,
- 			},
+	["Player"] = 
+	{
+		id = 0,
+		scale = 1,
+		collider = 
+		{
+			x = 0,
+			y = 0,
+			w = 5,
+			h = 5
+		},
+	},
+
+	["Crate"] = 
+	{ 
+		id = 2261922,
+		scale = 4,
+		collider = 
+		{
+			x = 0,
+			y = 0,
+			w = 5,
+			h = 5
+		},
+	},
 }
 
 Game.CharacterDisplayIDs = { 90029 }
@@ -249,12 +273,6 @@ function Canvas.CreateMainScene()
 	Canvas.mainScene:SetFrameLevel(101);
 	Canvas.mainScene:SetCameraFarClip(1000);
 	Canvas.mainScene:SetLightDirection(0.5, 1, 1);
-	--Canvas.mainScene:SetLightType(1)
-	--Canvas.mainScene:SetLightPosition(0, 0, 0);
-	--Canvas.mainScene:SetLightVisible(true)
-	--Canvas.mainScene:SetLightAmbientColor(0, 0, 0)
-	--Canvas.mainScene:SetLightDiffuseColor(1, 1, 1)
-	--Canvas.mainScene:SetLightDirection(0, 0, 0)
 
 	-- Create character actor --
     Canvas.character = Canvas.mainScene:CreateActor("character");
@@ -316,6 +334,28 @@ function Canvas.DEBUG_UpdateCharacterTrails()
 	end
 end
 
+function Physics.DEBUG_CreateColliderFrames() 
+	Physics.tempFrame = CreateFrame("Frame", "Physics.tempFrame", Canvas.frame);
+	Physics.tempFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", 0, 0);
+	Physics.tempFrame:SetSize(Game.ObjectDefinitions["Crate"].collider.w, Game.ObjectDefinitions["Crate"].collider.h);
+	Physics.tempFrame:SetFrameLevel(1000);
+	Physics.tempFrame.texture = Physics.tempFrame:CreateTexture("Physics.tempFrame_texture","BACKGROUND")
+	Physics.tempFrame.texture:SetColorTexture(0.9,0.9,1, 0.8);
+	Physics.tempFrame.texture:SetAllPoints(Physics.tempFrame);
+	Physics.tempFrame:Show();
+end
+
+function Physics.DEBUG_UpdateColliderFrames()
+	local x, y, z = Canvas.TestObject:GetPosition();
+	local X, Y, Z = Canvas.mainScene:Project3DPointTo2D(x, y, z);
+	print (X .. " " .. Y .. " " .. Z);
+	Physics.tempFrame:SetPoint("LEFT", Canvas.frame, "LEFT", 1000 -X, 0);
+end
+
+function Game.DEBUG_StepForward()
+	Game.debugStep = true;
+end
+
 --------------------------------------
 --			PLayer Input			--
 --------------------------------------
@@ -352,6 +392,11 @@ function Player.KeyPress(self, key)
 		else
 			Game.Resume();
 		end
+	elseif key == "RIGHT" then
+		if Game.devMode then
+			Player.inputFrame:SetPropagateKeyboardInput(false);
+			Game.DEBUG_StepForward();
+		end
 	end
 end
 Player.jumpRelease = false;
@@ -387,21 +432,6 @@ function Player.UpdateBlobShadow()
 	Canvas.dinoShadowBlobFrame:SetSize(60 + (60 * scale), 60 + (60 * scale));
 	Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX - (30 * scale), Canvas.dinoShadowBlobY - (25 * scale));
 end
---[[
-function Player.CalculateJumpVelocity()
-	local val = sin((math.pi / 2) * (1 - Player.jumpTime)) * Player.CurrentJumpHeight;
-	Player.jumpTime = Player.jumpTime + Game.UPDATE_INTERVAL;
-	--val = max(val, 0);
-	return val * 2.5;
-end
-
-function Player.CalculateFallVelocity()
-	local val = sin((math.pi / 2) * (1 - Player.jumpTime)) * Player.CurrentJumpHeight;
-	Player.jumpTime = Player.jumpTime - (Game.UPDATE_INTERVAL * 1.3);
-	--val = max(val, 0);
-    return val * 4;
-end
---]]
 
 function Player.CalculateJumpVelocity()
 	local distance = Player.worldPosY / Player.CurrentJumpHeight;
@@ -432,13 +462,16 @@ function Player.SetAnimation(name, speed)
 	Canvas.character:SetAnimation(Zee.animIndex[name], 0, speed);
 end
 
+Player.Ground = 0;
 -- Jumping --
+
 local jump_height = 0;
-local y_force = 0;
+Player.y_force = 0;
 local div = 10;
 function Player.UpdateJump()
 	if Player.JumpHeld == true and jump_height < 14 and Player.CanJump == true then
-		y_force = -10;
+		Player.y_force = -10;
+		--Player.Ground = 0;
 		jump_height = jump_height + 1;
 	end
    
@@ -448,22 +481,23 @@ function Player.UpdateJump()
 		jump_height = 0;
 
 		-- have the player start falling
-		y_force = y_force + 1;
+		Player.y_force = Player.y_force + 1;
 	end
-   
-	if Player.worldPosY - (y_force / div) <= 0 and Player.CanJump == false then
+
+	print (Player.worldPosY .. " " ..Player.Ground);
+	if Player.worldPosY - (Player.y_force / div) <= Player.Ground and Player.CanJump == false then
 		Player.CanJump = true;
-		Player.worldPosY = 0;
-		y_force = 0;
+		Player.worldPosY = Player.Ground;
+		Player.y_force = 0;
 	end
 
 	-- make fall happen a bit faster
 	-- if y_force > 0 means we're falling
-	if y_force > 0 then
-		y_force = y_force * 1.1;
+	if Player.y_force > 0 then
+		Player.y_force = Player.y_force * 1.1;
 	end
 
-	Player.worldPosY = Player.worldPosY - (y_force / div);
+	Player.worldPosY = Player.worldPosY - (Player.y_force / div);
 	Canvas.character:SetPosition(0, 21, Player.worldPosY );
 	Player.UpdateBlobShadow();
 	--[[
@@ -643,12 +677,45 @@ end
 --              Physics             --
 --------------------------------------
 
-function Physics.DEBUG_CreateColliderFrames()
-	--Physics.tempFrame = 
+function Physics.Update()
+	Physics.PlayerCollisionUpdate();
 end
 
-function Physics.UpdateCollisions()
+function Physics.PlayerCollisionUpdate()
+	-- all colliders are AABB
+	local playerCol = Game.ObjectDefinitions["Player"].collider;
+	local px, py, pz = Canvas.character:GetPosition();
+	
+	local objCol = Game.ObjectDefinitions["Crate"].collider;
+	local oScale = Game.ObjectDefinitions["Crate"].scale;
+	local ox, oy, oz = Canvas.TestObject:GetPosition();
+	oy = oy * oScale;
+	oz = oz * oScale;
 
+	if playerCol.x + py < objCol.x + oy + objCol.w and
+		playerCol.x + py + playerCol.w > objCol.x + oy and
+		playerCol.y + pz < objCol.y + oz + objCol.h and
+		playerCol.y + pz + playerCol.h > objCol.y + oz then
+    	-- collision detected!
+		Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+	else
+		Canvas.character:SetAlpha(1);
+	end
+
+	Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+end
+
+function Physics.GroundCheck(px, py, pw, ph, ox, oy, ow, oh)
+	Player.Ground = 0;
+	if py > oy then
+		if px < ox + ow and px + pw > ox then
+			Player.Ground = oy + oh;
+		end
+	end
+end
+
+function Physics.PlayerCollided(px, py, pw, ph, ox, oy, ow, oh)
+	Canvas.character:SetAlpha(0.5);
 end
 
 --------------------------------------
@@ -675,6 +742,7 @@ function Game.Initialize()
 	-- Debug init --
 	Canvas.DEBUG_CreateCaracterTrails();
 	Canvas.TestObject = Game.SpawnObject("Crate");
+	--Physics.DEBUG_CreateColliderFrames();
 end
 
 --------------------------------------
@@ -682,14 +750,17 @@ end
 --------------------------------------
 local cratepos = -10;
 function Game.Update(self, elapsed)
-	if Game.paused == false then
+	if Game.paused == false or Game.debugStep == true then
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
 		while (Game.timeSinceLastUpdate > Game.UPDATE_INTERVAL) do
+			Game.debugStep = false;
 			Canvas.UpdateGround();
 			Player.UpdateJump();
 			Player.UpdateFall();
 			Canvas.UpdateEnvironment();
+			Physics.Update();
 			Canvas.DEBUG_UpdateCharacterTrails();
+			--Physics.DEBUG_UpdateColliderFrames()
 
 			cratepos = cratepos + (Game.speed / Game.SCENE_SYNC);
 			if cratepos > 10 then cratepos = -10; end

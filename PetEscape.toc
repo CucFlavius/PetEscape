@@ -1,6 +1,6 @@
 ## Interface: 90001
-## Title: Dino
-## Notes: Dino Game
+## Title: Pet Escape
+## Notes: A mini-game
 ## Author: Zee (Songzee - Argent Dawn EU)
 ## DefaultState: enabled
 ## LoadOnDemand: 0
