@@ -1,0 +1,13 @@
+## Interface: 90001
+## Title: Dino
+## Notes: Dino Game
+## Author: Zee (Songzee - Argent Dawn EU)
+## DefaultState: enabled
+## LoadOnDemand: 0
+## SavedVariables: SavedSettings
+## X-eMail: cucflavius@gmail.com
+## X-Website: none
+## X-License: GPL
+## Version: 1.0
+
+Files.xml

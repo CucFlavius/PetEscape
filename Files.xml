@@ -1,0 +1,7 @@
+
+<Ui>
+	<Script file="Libraries\LibStub\LibStub.lua"/>
+	<Include file="Libraries\ZWindowAPI\ZWindowAPI.xml"/>
+	<Script file="AnimationNames.lua"/>
+	<Script file="Game.lua"/>
+</Ui>
