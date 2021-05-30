@@ -1,15 +1,39 @@
+----------------------------------------------------------------------
+-- • Title: Pet Escape									  			--
+-- • Description : A mini-game designed for World of Warcraft 		--
+-- • Version: 0.1 Development								  		--
+-- • Contact In game: Songzee (ArgentDawn)(EU)			  			--
+-- • Contact Email: cucflavius@gmail.com					  		--
+-- • Some more details about the project:							--
+--   The inspiration came from the small game that shows up in the	--
+--   Chrome browser when your internet is down, you might see the	--
+--	 name "dinogame" pop out through code here and there.			--
+--   As a challenge I've set two limitations when designing it,		--
+--	 the first one being to only use in game assets to create every --
+--	 single graphic in the game, and the second one was to write	--
+--	 all the code in a single script file (ignoring the toc file)	--
+--   I wanted to make something very simple to control, with a		--
+--	 single key press, mainly to reduce complexity and development	--
+--	 time, but also for the chance to think about how puzzles can	--
+--	 be designed around the limitation of character interaction		--
+----------------------------------------------------------------------
+--------------------------------------
+--				Classes 			--
+--------------------------------------
 Zee = Zee or {}
 Zee.DinoGame = Zee.DinoGame or {}
 Zee.DinoGame.Canvas = Zee.DinoGame.Canvas or {}
 Zee.DinoGame.Canvas.Environment = Zee.DinoGame.Canvas.Environment or {};
 Zee.DinoGame.Player = Zee.DinoGame.Player or {}
 Zee.DinoGame.Physics = Zee.DinoGame.Physics or {}
+Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
 local Environment = Zee.DinoGame.Canvas.Environment;
 local Player = Zee.DinoGame.Player;
 local Physics = Zee.DinoGame.Physics;
+local LevelGenerator = Zee.DinoGame.LevelGenerator;
 Canvas.Ground = {};
 
 --------------------------------------
@@ -17,20 +41,33 @@ Canvas.Ground = {};
 --------------------------------------
 Player.screenX = 160;
 Player.screenY = 90;
-Player.Jumping = false;
-Player.Falling = false;
-Player.CanJump = true;
-Player.Landing = false;
+Player.jumping = false;
+Player.falling = false;
+Player.canJump = true;
+Player.landing = false;
+Player.grounded = true;
+Player.isHeldInPlace = false;
+Player.jumpHold = false;
+Player.jumpRelease = false;
 Player.worldPosY = 0;
+Player.ground = 0;
+Player.posX = 22;
 Player.jumpTime = 0;
-Player.CurrentAnimation = "Run";
-Player.JumpStartPosition = 0;
-Player.CurrentJumpHeight = 0;
-Player.CurrentLandTime = 0;
-Player.Grounded = true;
+Player.currentAnimation = "Run";
+Player.jumpStartPosition = 0;
+Player.currentJumpHeight = 0;
+Player.currentLandTime = 0;
+Player.jumpHeight = 0;
+Player.yForce = 0;
+Player.yForceDiv = 10;
 Game.paused = false;
 Game.speed = 2;
 Game.debugStep = false;
+Game.travelledDistance = 0;
+LevelGenerator.puzzleLength = 0;
+LevelGenerator.puzzlePosition = 0;
+LevelGenerator.totalObjects = 0;
+Physics.groundCollided = false;
 
 --------------------------------------
 --				Settings			--
@@ -50,14 +87,13 @@ Canvas.Ground.lightRimIntensity = 0.3;
 Canvas.Ground.depthShadowIntensity = 1;
 Canvas.Ground.depthShadowScale = 1;
 Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
-Player.JumpKey = "W";
-Player.BigJumpHeight = 14;
-Player.SmallJumpHeight = 10;						-- The minimum jump height
-Player.JumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
-Player.JumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
-Player.JumpLandAnimationSpeed = 1;					-- The animation speed for the character "JumpEnd" animation, playing at speed 1 feels best tbh
-Player.RunAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character animation not play at full Game.speed so his legs doen't look like sonic's at higher game speeds
+Player.jumpKey = "W";
+Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
+Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
+Player.jumpLandAnimationSpeed = 1;					-- The animation speed for the character "JumpEnd" animation, playing at speed 1 feels best tbh
+Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character animation not play at full Game.speed so his legs doen't look like sonic's at higher game speeds
 Game.DEBUG_TrailCount = 40;
+LevelGenerator.objectPoolSize = 10;
 
 --------------------------------------
 --			     Data				--
@@ -91,16 +127,52 @@ Game.ObjectDefinitions =
 	},
 }
 
-Game.CharacterDisplayIDs = { 90029 }
+Game.Puzzles =
+{
+	["1Empty"] =
+	{
+		objectCount = 0,
+		length = 1,
+	},
 
-function Game.SpawnObject(name)
-	local def = Game.ObjectDefinitions[name];
-    local actor = Canvas.mainScene:CreateActor("test");
-    actor:SetModelByFileID(def.id);
-	actor:SetUseCenterForOrigin();
-	actor:SetScale(def.scale);
-	return actor;
-end
+	["1Crate"] = 
+	{
+		objectCount = 1,
+		objects = 
+		{ 
+			{ dName = "Crate", position = { x = 0, y = 0 } },
+		},
+		length = 1.2,
+	},
+
+	["4CratesLine"] = 
+	{
+		objectCount = 4,
+		objects = 
+		{ 
+			{ dName = "Crate", position = { x = 0, y = 0 } },
+			{ dName = "Crate", position = { x = 1.2, y = 0 } },
+			{ dName = "Crate", position = { x = 1.2 * 2, y = 0 } },
+			{ dName = "Crate", position = { x = 1.2 * 3, y = 0 } },
+		},
+		length = 1.2 * 4;
+	},
+
+	["4CratesTetris"] = 
+	{
+		objectCount = 4,
+		objects = 
+		{ 
+			{ dName = "Crate", position = { x = 0, y = 0 } },
+			{ dName = "Crate", position = { x = 1.2, y = 0 } },
+			{ dName = "Crate", position = { x = 1.2, y = 1.2 } },
+			{ dName = "Crate", position = { x = 1.2 * 2, y = 0 } },
+		},
+		length = 1.2 * 4 + 6, 		-- leaving some space blank for testing purposes (DELETE the 6)
+	},
+}
+
+Game.CharacterDisplayIDs = { 90029 }
 
 --------------------------------------
 --		       Game State			--
@@ -113,6 +185,89 @@ end
 function Game.Resume()
 	Game.paused = false;
 	Canvas.character:SetPaused(false);
+end
+
+--------------------------------------
+--          Level Generator         --
+--------------------------------------
+
+function LevelGenerator.Initialize()
+	-- Create game object pool
+	Game.GameObjects = {}
+	for k = 1, LevelGenerator.objectPoolSize, 1 do
+		LevelGenerator.CreateNewGameObject();
+	end
+end
+
+function LevelGenerator.Update()
+	-- determine if new puzzle should be spawned
+	if Game.travelledDistance >= LevelGenerator.puzzlePosition + LevelGenerator.puzzleLength then
+		LevelGenerator.puzzlePosition = Game.travelledDistance;
+		LevelGenerator.SpawnPuzzle();
+	end
+
+	-- loop through all the objects, and move them
+	for k = 1, LevelGenerator.totalObjects, 1 do
+		if Game.GameObjects[k].active == true then
+			Game.GameObjects[k].position.x = Game.GameObjects[k].position.x + (Game.speed / Game.SCENE_SYNC);
+			Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x, Game.GameObjects[k].position.y);
+			if Game.GameObjects[k].position.x > 10 then
+				Game.GameObjects[k].active = false;
+			end
+		end
+	end
+end
+
+function LevelGenerator.SpawnPuzzle()
+	local puzzle = Game.Puzzles["4CratesTetris"];
+	LevelGenerator.puzzleLength = puzzle.length;
+	for k = 1, puzzle.objectCount, 1 do
+		LevelGenerator.SpawnObject(puzzle.objects[k].dName, puzzle.objects[k].position)
+	end
+end
+
+function LevelGenerator.SpawnObject(dName, position)
+	local goIndex = LevelGenerator.GetAvailableGameObject();
+	Game.GameObjects[goIndex].active = true;
+	local definitionName = Game.GameObjects[goIndex].definition;
+	if dName ~= definitionName then
+		local definition = Game.ObjectDefinitions[dName];
+		Game.GameObjects[goIndex].definition = definition;
+		Game.GameObjects[goIndex].actor:SetModelByFileID(definition.id);
+		Game.GameObjects[goIndex].actor:SetScale(definition.scale);
+	end
+	Game.GameObjects[goIndex].position.x = -10 - position.x;
+	Game.GameObjects[goIndex].position.y = 0 + position.y;
+end
+
+function LevelGenerator.GetAvailableGameObject()
+	local firstAvailable = -1;
+	for k = 1, LevelGenerator.totalObjects, 1 do
+		if firstAvailable == -1 then
+			if  Game.GameObjects[k].active == false then
+				firstAvailable = k;
+				break;
+			end
+		end
+	end
+
+	if firstAvailable ~= -1 then
+		return firstAvailable;
+	else
+		return LevelGenerator.CreateNewGameObject();
+	end
+end
+
+function LevelGenerator.CreateNewGameObject()
+	LevelGenerator.totalObjects = LevelGenerator.totalObjects + 1;
+	local idx = LevelGenerator.totalObjects;
+	Game.GameObjects[idx] = {
+		active = false,
+		definition = "None",
+		position = { x = 0, y = 0 },
+		actor = Canvas.mainScene:CreateActor("GameObject_" .. idx),
+	}
+	return idx;
 end
 
 --------------------------------------
@@ -279,7 +434,7 @@ function Canvas.CreateMainScene()
     Canvas.character:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
     Canvas.character:SetYaw(math.rad(-90));
 	Canvas.character:SetPosition(0, 21, 0);
-    Player.SetAnimation("Run", Game.speed * Player.RunAnimationSpeedMultiplier);
+    Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
 
 	--print(Canvas.character:GetActiveBoundingBox());
 
@@ -303,6 +458,7 @@ end
 --------------------------------------
 --		  	  DEBUGGING				--
 --------------------------------------
+
 function Canvas.DEBUG_CreateCaracterTrails()
 	Canvas.DEBUG_Trails = {};
 	local offs = 0;
@@ -324,13 +480,17 @@ function Canvas.DEBUG_CreateCaracterTrails()
 end
 
 function Canvas.DEBUG_UpdateCharacterTrails()
+	local offs = 0;
 	for k = Game.DEBUG_TrailCount, 1, -1 do
+		offs = offs + Game.speed;
 		if k == 1 then
 			Canvas.DEBUG_Trails[k].y = Player.worldPosY * 5 + Player.screenY + 30;
 		else
 			Canvas.DEBUG_Trails[k].y = Canvas.DEBUG_Trails[k - 1].y;
 		end
-		Canvas.DEBUG_Trails[k].frame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Canvas.DEBUG_Trails[k].x, Canvas.DEBUG_Trails[k].y);
+
+		Canvas.DEBUG_Trails[k].x = offs + (-Player.posX * 7.2) + 250;
+		Canvas.DEBUG_Trails[k].frame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Canvas.DEBUG_Trails[k].x , Canvas.DEBUG_Trails[k].y);
 	end
 end
 
@@ -348,7 +508,6 @@ end
 function Physics.DEBUG_UpdateColliderFrames()
 	local x, y, z = Canvas.TestObject:GetPosition();
 	local X, Y, Z = Canvas.mainScene:Project3DPointTo2D(x, y, z);
-	print (X .. " " .. Y .. " " .. Z);
 	Physics.tempFrame:SetPoint("LEFT", Canvas.frame, "LEFT", 1000 -X, 0);
 end
 
@@ -359,32 +518,27 @@ end
 --------------------------------------
 --			PLayer Input			--
 --------------------------------------
-Player.JumpHeld = false;
+
 function Player.KeyPress(self, key)
-    if key == Player.JumpKey then
-		if Player.JumpHeld == false and Player.CanJump == true then
-			Player.JumpHeld = true;
+    if key == Player.jumpKey then
+		if Player.jumpHold == false and Player.canJump == true then
+			Player.jumpHold = true;
 		end
 
 		Player.inputFrame:SetPropagateKeyboardInput(false);
-		--[[
-		if Game.paused == false then
-			self:SetPropagateKeyboardInput(false);		-- check if game paused or playing, else don't disable propagate
-			if Player.CanJump == true then
-				Player.CurrentJumpHeight = Player.BigJumpHeight;
-				Player.CanJump = false;
-				Player.JumpStartPosition = Player.worldPosY;
-				Player.inputFrame:SetPropagateKeyboardInput(false);
-				Player.Jumping = true;
-				Player.CurrentLandTime = 0;
-				Player.Landing = false;
 
-				if Player.CurrentAnimation ~= "JumpStart" then
-					Player.SetAnimation("JumpStart", 1);
-				end
+		if Player.canJump == true then
+			Player.jumpStartPosition = Player.worldPosY;
+			Player.inputFrame:SetPropagateKeyboardInput(false);
+			Player.jumping = true;
+			Player.CurrentLandTime = 0;
+			Player.landing = false;
+
+			if Player.currentAnimation ~= "JumpStart" then
+				Player.SetAnimation("JumpStart", 1);
 			end
 		end
-		--]]
+
     elseif key == "ESCAPE" then
 		Player.inputFrame:SetPropagateKeyboardInput(false);
 		if Game.paused == false then
@@ -399,17 +553,10 @@ function Player.KeyPress(self, key)
 		end
 	end
 end
-Player.jumpRelease = false;
+
 function Player.KeyRelease(self, key)
-    if key == Player.JumpKey then
-		Player.JumpHeld = false;
-		if Player.Jumping == true then
-			if Player.SmallJumpHeight > Player.worldPosY then
-				Player.CurrentJumpHeight = Player.SmallJumpHeight;
-			else
-				Player.CurrentJumpHeight = max(Player.worldPosY,  Player.SmallJumpHeight);
-			end
-		end
+    if key == Player.jumpKey then
+		Player.jumpHold = false;
     end
 	self:SetPropagateKeyboardInput(true);
 end
@@ -427,10 +574,10 @@ end
 --------------------------------------
 
 function Player.UpdateBlobShadow()
-	local scale = (Player.worldPosY / Player.BigJumpHeight * 0.8);
+	local scale = (Player.worldPosY / 10 * 0.8);
 	Canvas.dinoShadowBlobFrame:SetAlpha(0.6 * (1 - scale));
 	Canvas.dinoShadowBlobFrame:SetSize(60 + (60 * scale), 60 + (60 * scale));
-	Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX - (30 * scale), Canvas.dinoShadowBlobY - (25 * scale));
+	Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX - (30 * scale) - 5, Canvas.dinoShadowBlobY - (25 * scale));
 end
 
 function Player.CalculateJumpVelocity()
@@ -458,109 +605,8 @@ function Player.CalculateFallVelocity()
 end
 
 function Player.SetAnimation(name, speed)
-	Player.CurrentAnimation = name;
+	Player.currentAnimation = name;
 	Canvas.character:SetAnimation(Zee.animIndex[name], 0, speed);
-end
-
-Player.Ground = 0;
--- Jumping --
-
-local jump_height = 0;
-Player.y_force = 0;
-local div = 10;
-function Player.UpdateJump()
-	if Player.JumpHeld == true and jump_height < 14 and Player.CanJump == true then
-		Player.y_force = -10;
-		--Player.Ground = 0;
-		jump_height = jump_height + 1;
-	end
-   
-	if jump_height >= 14 or Player.JumpHeld == false then
-		Player.CanJump = false;
-		Player.JumpHeld = false;
-		jump_height = 0;
-
-		-- have the player start falling
-		Player.y_force = Player.y_force + 1;
-	end
-
-	print (Player.worldPosY .. " " ..Player.Ground);
-	if Player.worldPosY - (Player.y_force / div) <= Player.Ground and Player.CanJump == false then
-		Player.CanJump = true;
-		Player.worldPosY = Player.Ground;
-		Player.y_force = 0;
-	end
-
-	-- make fall happen a bit faster
-	-- if y_force > 0 means we're falling
-	if Player.y_force > 0 then
-		Player.y_force = Player.y_force * 1.1;
-	end
-
-	Player.worldPosY = Player.worldPosY - (Player.y_force / div);
-	Canvas.character:SetPosition(0, 21, Player.worldPosY );
-	Player.UpdateBlobShadow();
-	--[[
-	if Player.Jumping == true then
-		if Player.worldPosY > Player.CurrentJumpHeight then
-			--Player.CurrentJumpHeight = Player.worldPosY;
-			Player.Jumping = false;
-			Player.Falling = true;
-			--Player.jumpTime = 1;
-		end
-
-        Player.worldPosY = Player.worldPosY + Player.CalculateJumpVelocity();
-		Canvas.character:SetPosition(0, 21, Player.worldPosY);
-		Player.UpdateBlobShadow();
-    end
-
-	if Player.Jumping == false and Player.Falling == false then
-		if Player.Landing == true then
-			Player.CurrentLandTime = Player.CurrentLandTime + Game.UPDATE_INTERVAL;
-			if Player.CurrentLandTime >= Player.JumpLandTime then
-				Player.CurrentLandTime = 0;
-				Player.Landing = false;
-				if Player.CurrentAnimation ~= "Run" then
-					Player.SetAnimation("Run", Game.speed * Player.RunAnimationSpeedMultiplier);
-				end
-			end
-		else
-			if Player.CurrentAnimation ~= "Run" then
-				Player.SetAnimation("Run", Game.speed * Player.RunAnimationSpeedMultiplier);
-			end
-		end
-	end
-	--]]
-	--print(Player.CurrentJumpHeight);
-end
-
--- Falling --
-function Player.UpdateFall()
-
-	--[[
-    if Player.Falling == true then
-        Player.worldPosY = Player.worldPosY - Player.CalculateFallVelocity();
-
-		if Player.CurrentAnimation ~= "Fall" then
-			Player.SetAnimation("Fall", 1);
-		end
-
-		-- Just Landed --
-		if Player.worldPosY <= 0 then
-			Player.worldPosY = 0;
-			Player.Falling = false;
-			Player.CanJump = true;
-			Player.CurrentJumpHeight = 0;
-			Player.jumpTime = 0;
-			Player.Landing = true;
-			if Player.CurrentAnimation ~= "JumpEnd" then
-				Player.SetAnimation("JumpEnd", Player.JumpLandAnimationSpeed);
-			end
-		end
-		Canvas.character:SetPosition(0, 21, Player.worldPosY);
-		Player.UpdateBlobShadow();
-	end
-	--]]
 end
 
 --------------------------------------
@@ -685,37 +731,121 @@ function Physics.PlayerCollisionUpdate()
 	-- all colliders are AABB
 	local playerCol = Game.ObjectDefinitions["Player"].collider;
 	local px, py, pz = Canvas.character:GetPosition();
-	
-	local objCol = Game.ObjectDefinitions["Crate"].collider;
-	local oScale = Game.ObjectDefinitions["Crate"].scale;
-	local ox, oy, oz = Canvas.TestObject:GetPosition();
-	oy = oy * oScale;
-	oz = oz * oScale;
-
-	if playerCol.x + py < objCol.x + oy + objCol.w and
-		playerCol.x + py + playerCol.w > objCol.x + oy and
-		playerCol.y + pz < objCol.y + oz + objCol.h and
-		playerCol.y + pz + playerCol.h > objCol.y + oz then
-    	-- collision detected!
-		Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
-	else
-		Canvas.character:SetAlpha(1);
-	end
-
-	Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
-end
-
-function Physics.GroundCheck(px, py, pw, ph, ox, oy, ow, oh)
-	Player.Ground = 0;
-	if py > oy then
-		if px < ox + ow and px + pw > ox then
-			Player.Ground = oy + oh;
+	Player.ground = 0;
+	Player.isHeldInPlace = false;
+	for k = 1, LevelGenerator.totalObjects, 1 do
+		if Game.GameObjects[k].active == true then
+			local definition = Game.GameObjects[k].definition;
+			local objCol = definition.collider;
+			local oScale = definition.scale;
+			local ox, oy, oz = Game.GameObjects[k].actor:GetPosition();
+			oy = oy * oScale;
+			oz = oz * oScale;
+			
+			Physics.groundCollided = Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+			--local frontCollided = Physics.FrontCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+			if playerCol.x + py < objCol.x + oy + objCol.w and playerCol.x + py + playerCol.w > objCol.x + oy and playerCol.y + pz < objCol.y + oz + objCol.h and playerCol.y + pz + playerCol.h > objCol.y + oz then
+				-- collision detected!
+				Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+			else
+				Game.GameObjects[k].actor:SetAlpha(1);
+			end
 		end
 	end
 end
 
+function Physics.GroundCheck(px, py, pw, ph, ox, oy, ow, oh)
+	if py + 0.1 >= oy + oh then		-- adding a 0.1 margin of error in case math explodes
+		if px < ox + ow and px + pw > ox then
+			if Player.ground < oy + oh then
+				Player.ground = oy + oh;
+				return true;
+			end
+		end
+	end
+
+	return false;
+end
+
 function Physics.PlayerCollided(px, py, pw, ph, ox, oy, ow, oh)
-	Canvas.character:SetAlpha(0.5);
+	-- if we aren't sitting on the object
+	if Physics.groundCollided == false then
+		Player.isHeldInPlace = true;
+		--Game.GameObjects[k].actor:SetAlpha(0.5);
+	end
+end
+
+function Player.Update()
+	if Player.posX > 35 then
+		Game.Pause();		-- game over actually
+	end
+
+	if Player.isHeldInPlace == true then
+		Player.posX = Player.posX + (Game.speed / Game.SCENE_SYNC * 4);		-- why do I have to multiply by 4 ?
+	else
+		if Player.posX > 22 then
+			Player.posX = Player.posX - (Game.speed / Game.SCENE_SYNC);
+		end
+	end
+
+	if Player.jumpHold == true and Player.jumpHeight < 14 and Player.canJump == true then
+		Player.yForce = -10;
+		Player.jumping = true;
+		Player.jumpHeight = Player.jumpHeight + 1;
+	end
+   
+	if Player.jumpHeight >= 14 or Player.jumpHold == false then
+		Player.canJump = false;
+		Player.jumpHold = false;
+		Player.jumpHeight = 0;
+		Player.jumping = false;
+		-- have the player start falling
+		Player.yForce = Player.yForce + 1;
+	end
+
+	if Player.worldPosY - (Player.yForce / Player.yForceDiv) <= Player.ground and Player.canJump == false then
+		Player.worldPosY = Player.ground;
+		Player.yForce = 0;
+		if Player.falling then
+			Player.landing = true;
+		end
+
+		if Player.landing == true then
+			if Player.currentAnimation ~= "JumpEnd" then
+				Player.SetAnimation("JumpEnd", Player.jumpLandAnimationSpeed);
+			end
+		end
+		Player.falling = false;
+		Player.canJump = true;
+	end
+
+	-- if yForce > 0 means we're falling
+	if Player.yForce > 0 then
+		Player.falling = true;
+		-- make fall happen a bit faster
+		Player.yForce = Player.yForce * 1.1;
+	end
+
+	Player.worldPosY = Player.worldPosY - (Player.yForce / Player.yForceDiv);
+	Canvas.character:SetPosition(0, Player.posX, Player.worldPosY);
+	Player.UpdateBlobShadow();
+
+	if Player.jumping == false and Player.falling == false then
+		if Player.landing == true then
+			Player.currentLandTime = Player.currentLandTime + Game.UPDATE_INTERVAL;
+			if Player.currentLandTime >= Player.jumpLandTime then
+				Player.currentLandTime = 0;
+				Player.landing = false;
+				if Player.currentAnimation ~= "Run" then
+					Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
+				end
+			end
+		else
+			if Player.currentAnimation ~= "Run" then
+				Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
+			end
+		end
+	end
 end
 
 --------------------------------------
@@ -730,6 +860,9 @@ function Game.Initialize()
 	-- Create canvas --
 	Canvas.Create();
 
+	-- Initialize Level Generator --
+	LevelGenerator.Initialize();
+
 	-- Create update frame --
 	Game.timeSinceLastUpdate = 0;
 	Game.time = 0;
@@ -741,30 +874,25 @@ function Game.Initialize()
 
 	-- Debug init --
 	Canvas.DEBUG_CreateCaracterTrails();
-	Canvas.TestObject = Game.SpawnObject("Crate");
 	--Physics.DEBUG_CreateColliderFrames();
 end
 
 --------------------------------------
 --			Update Loop				--
 --------------------------------------
-local cratepos = -10;
 function Game.Update(self, elapsed)
 	if Game.paused == false or Game.debugStep == true then
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
 		while (Game.timeSinceLastUpdate > Game.UPDATE_INTERVAL) do
 			Game.debugStep = false;
 			Canvas.UpdateGround();
-			Player.UpdateJump();
-			Player.UpdateFall();
+			Player.Update();
 			Canvas.UpdateEnvironment();
 			Physics.Update();
 			Canvas.DEBUG_UpdateCharacterTrails();
+			LevelGenerator.Update();
 			--Physics.DEBUG_UpdateColliderFrames()
-
-			cratepos = cratepos + (Game.speed / Game.SCENE_SYNC);
-			if cratepos > 10 then cratepos = -10; end
-			Canvas.TestObject:SetPosition(0, cratepos, 0);
+			Game.travelledDistance = Game.travelledDistance + (Game.speed / Game.SCENE_SYNC);
 
 			Game.time  = Game.time + Game.UPDATE_INTERVAL;
 			Game.timeSinceLastUpdate = Game.timeSinceLastUpdate - Game.UPDATE_INTERVAL;
