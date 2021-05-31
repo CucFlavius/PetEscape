@@ -28,6 +28,8 @@ Zee.DinoGame.Player = Zee.DinoGame.Player or {}
 Zee.DinoGame.Physics = Zee.DinoGame.Physics or {}
 Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
 Zee.DinoGame.Cutscene = Zee.DinoGame.Cutscene or {}
+Zee.DinoGame.Sound = Zee.DinoGame.Sound or {}
+Zee.DinoGame.UI = Zee.DinoGame.UI or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
@@ -36,6 +38,8 @@ local Player = Zee.DinoGame.Player;
 local Physics = Zee.DinoGame.Physics;
 local LevelGenerator = Zee.DinoGame.LevelGenerator;
 local Cutscene = Zee.DinoGame.Cutscene;
+local Sound = Zee.DinoGame.Sound;
+local UI = Zee.DinoGame.UI;
 Canvas.Ground = {};
 
 --------------------------------------
@@ -72,6 +76,8 @@ LevelGenerator.puzzlePosition = 0;
 LevelGenerator.totalObjects = 0;
 Physics.groundCollided = false;
 Cutscene.current = "None";
+Game.time = 0;
+Game.realTime = 0;
 
 --------------------------------------
 --				Settings			--
@@ -361,12 +367,14 @@ function Canvas.Create()
 	Canvas.parentFrame:SetWidth(Game.width);
 	Canvas.parentFrame:SetHeight(Game.height);
 	Canvas.parentFrame:SetPoint("CENTER", 0, 0);
+	Canvas.parentFrame:SetFrameLevel(1000);
 	Canvas.parentFrame:SetClipsChildren(true);
 
 	-- Create main canvas frame --
 	Canvas.frame = CreateFrame("Frame", "Canvas.frame", Canvas.parentFrame);
 	Canvas.frame:SetWidth(Game.width);
 	Canvas.frame:SetHeight(Game.height);
+	Canvas.frame:SetFrameLevel(1);
 	Canvas.frame:SetPoint("CENTER", Canvas.defaultPan * Game.width, 0);
 	Canvas.frame.texture = Canvas.frame:CreateTexture("Canvas.frame_Texture","BACKGROUND")
 	--Canvas.frame.texture:SetColorTexture(0.66, 0.66, 0.7, 1);
@@ -534,7 +542,227 @@ end
 --------------------------------------
 --		  	     UI					--
 --------------------------------------
+function UI.Initialize()
+	-- pausing stuff for testing purposes
+	Game.Update(nil, 0.1);		-- running one update to make sure the graphics are in the correct state
+	Game.Pause();
+	--Canvas.frame:SetScale(1);
 
+	--UI.CreateMainMenu();
+	UI.CreateLogo();
+end
+
+function UI.Animate()
+	UI.AnimateMainMenu();
+end
+
+function UI.CreateMainMenu()
+	UI.MainMenu = {}
+	UI.MainMenu.assets = {};
+	UI.MainMenu.scene = CreateFrame("ModelScene", "UI.MainMenu.scene", Game.mainWindow);
+    UI.MainMenu.scene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
+    UI.MainMenu.scene:SetSize(Game.width, Game.height);
+    UI.MainMenu.scene:SetCameraPosition(-10, 0, 0);
+	UI.MainMenu.scene:SetFrameLevel(1200);
+	UI.MainMenu.scene:SetCameraFarClip(1000);
+	UI.MainMenu.scene:SetLightDirection(0.5, 1, -1);
+	UI.MainMenu.scene:SetCameraFieldOfView(math.rad(90));
+
+	UI.CreateMainMenuFrame();
+end
+
+function UI.CreateMainMenuFrame()
+	UI.MainMenu.assets[1] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[1]");
+    UI.MainMenu.assets[1]:SetModelByFileID(1013989);
+    --UI.MainMenu.assets[1]:SetYaw(math.rad(0));
+	UI.MainMenu.assets[1]:SetPitch(math.rad(90));
+	UI.MainMenu.assets[1]:SetPosition(0, 2, 0);
+
+	UI.MainMenu.assets[2] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[2]");
+    UI.MainMenu.assets[2]:SetModelByFileID(1013989);
+    --UI.MainMenu.assets[2]:SetYaw(math.rad(0));
+	UI.MainMenu.assets[2]:SetPitch(math.rad(90));
+	UI.MainMenu.assets[2]:SetPosition(0, -2, 0);
+
+	UI.MainMenu.assets[3] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[3]");
+    UI.MainMenu.assets[3]:SetModelByFileID(1013989);
+    UI.MainMenu.assets[3]:SetRoll(math.rad(90));
+	UI.MainMenu.assets[3]:SetYaw(math.rad(90));
+	UI.MainMenu.assets[3]:SetPosition(0, 0, 2.5);
+
+	UI.MainMenu.assets[4] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[4]");
+    UI.MainMenu.assets[4]:SetModelByFileID(1013989);
+    UI.MainMenu.assets[4]:SetRoll(math.rad(90));
+	UI.MainMenu.assets[4]:SetYaw(math.rad(90));
+	UI.MainMenu.assets[4]:SetPosition(0, 0, -2.5);
+
+	UI.MainMenu.assets[5] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[5]");
+    UI.MainMenu.assets[5]:SetModelByFileID(1523215);
+    UI.MainMenu.assets[5]:SetRoll(math.rad(0));
+	UI.MainMenu.assets[5]:SetYaw(math.rad(180));
+	UI.MainMenu.assets[5]:SetPosition(-2, -4, -5.5);
+	UI.MainMenu.assets[5]:SetScale(0.5);
+
+	UI.MainMenu.assets[6] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[6]");
+    UI.MainMenu.assets[6]:SetModelByFileID(1523229);
+    UI.MainMenu.assets[6]:SetRoll(math.rad(0));
+	UI.MainMenu.assets[6]:SetYaw(math.rad(180));
+	UI.MainMenu.assets[6]:SetPosition(-2, 4, -5.5);
+	UI.MainMenu.assets[6]:SetScale(0.5);
+end
+
+function UI.AnimateMainMenu()
+	--[[
+	if UI.MainMenu ~= nil then
+		UI.MainMenu.scene:SetCameraOrientationByYawPitchRoll(0, math.sin(Game.realTime) / 10 - math.rad(10), 0);
+		UI.MainMenu.scene:SetCameraPosition(-12 + math.sin(Game.realTime), 0, math.sin(Game.realTime) - 2);
+	end
+	--]]
+end
+
+function UI.CreateLogo()
+	UI.Logo = {}
+	UI.Logo.assets = {};
+	UI.Logo.scene = CreateFrame("ModelScene", "UI.Logo.scene", Game.mainWindow);
+    UI.Logo.scene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
+	UI.Logo.scene:SetFrameStrata("HIGH");
+    UI.Logo.scene:SetSize(Game.width, Game.height);
+    UI.Logo.scene:SetCameraPosition(-20, 0, 0);
+	UI.Logo.scene:SetFrameLevel(1200);
+	UI.Logo.scene:SetCameraFarClip(5000);
+	UI.Logo.scene:SetLightDirection(0.5, 1, -1);
+	UI.Logo.scene:SetCameraFieldOfView(math.rad(90));
+	UI.Logo.scene:SetFogFar(100);
+	UI.Logo.scene:SetFogNear(20);
+	UI.Logo.scene:SetFogColor(0,0,0);
+
+	UI.Logo.shadowScene = CreateFrame("ModelScene", "UI.Logo.shadowScene", Game.mainWindow);
+    UI.Logo.shadowScene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
+	UI.Logo.shadowScene:SetFrameStrata("HIGH");
+    UI.Logo.shadowScene:SetSize(Game.width, Game.height);
+    UI.Logo.shadowScene:SetCameraPosition(-29, 0, 0);
+	UI.Logo.shadowScene:SetFrameLevel(1200);
+	UI.Logo.shadowScene:SetCameraFarClip(1000);
+	UI.Logo.shadowScene:SetLightDirection(0.5, 1, -1);
+	UI.Logo.shadowScene:SetCameraFieldOfView(math.rad(60));
+	UI.Logo.shadowScene:SetLightVisible(false);
+
+	UI.Logo.bgScene = CreateFrame("ModelScene", "UI.Logo.bgScene", Game.mainWindow);
+    UI.Logo.bgScene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
+	UI.Logo.bgScene:SetFrameStrata("HIGH");
+    UI.Logo.bgScene:SetSize(Game.width, Game.height);
+    UI.Logo.bgScene:SetCameraPosition(-20, 0, 0);
+	UI.Logo.bgScene:SetFrameLevel(1200);
+	UI.Logo.bgScene:SetCameraFarClip(5000);
+	UI.Logo.bgScene:SetLightDirection(0.5, 1, -1);
+	UI.Logo.bgScene:SetCameraFieldOfView(math.rad(90));
+
+	-- Left side npc
+	UI.Logo.assets[1] = UI.Logo.scene:CreateActor("UI.Logo.assets[1]");
+    UI.Logo.assets[1]:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
+    UI.Logo.assets[1]:SetYaw(math.rad(180 - 30));
+	UI.Logo.assets[1]:SetPosition(0, 0, 0);
+	UI.Logo.assets[1]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[1]:SetPaused(true);
+
+	UI.Logo.assets[-1] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-1]");
+    UI.Logo.assets[-1]:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
+    UI.Logo.assets[-1]:SetYaw(math.rad(180 - 30));
+	UI.Logo.assets[-1]:SetPosition(0, 0, 0);
+	UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[-1]:SetPaused(true);
+
+	-- Right side npc
+	UI.Logo.assets[2] = UI.Logo.scene:CreateActor("UI.Logo.assets[2]");
+    UI.Logo.assets[2]:SetModelByCreatureDisplayID(16259);
+    UI.Logo.assets[2]:SetYaw(math.rad(180 + 30));
+	UI.Logo.assets[2]:SetPosition(0, 0, 0);
+	UI.Logo.assets[2]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[2]:SetPaused(true);
+	UI.Logo.assets[2]:SetScale(2);
+
+	UI.Logo.assets[-2] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-2]");
+    UI.Logo.assets[-2]:SetModelByCreatureDisplayID(16259);
+    UI.Logo.assets[-2]:SetYaw(math.rad(180 + 30));
+	UI.Logo.assets[-2]:SetPosition(0, 0, 0);
+	UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[-2]:SetPaused(true);
+	UI.Logo.assets[-2]:SetScale(2);
+
+	-- Monster npc
+	UI.Logo.assets[3] = UI.Logo.scene:CreateActor("UI.Logo.assets[3]");
+    UI.Logo.assets[3]:SetModelByCreatureDisplayID(378);
+    UI.Logo.assets[3]:SetYaw(math.rad(180));
+	UI.Logo.assets[3]:SetPitch(math.rad(-10));
+	UI.Logo.assets[3]:SetPosition(0, 0, 0);
+	UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[3]:SetPaused(true);
+	UI.Logo.assets[3]:SetScale(4);
+
+	UI.Logo.assets[-3] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-3]");
+    UI.Logo.assets[-3]:SetModelByCreatureDisplayID(378);
+    UI.Logo.assets[-3]:SetYaw(math.rad(180));
+	UI.Logo.assets[-3]:SetPitch(math.rad(-10));
+	UI.Logo.assets[-3]:SetPosition(0, 0, 0);
+	UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[-3]:SetPaused(true);
+	UI.Logo.assets[-3]:SetScale(4);
+
+	-- Center npc
+	UI.Logo.assets[4] = UI.Logo.scene:CreateActor("UI.Logo.assets[4]");
+    UI.Logo.assets[4]:SetModelByCreatureDisplayID(87401);
+	UI.Logo.assets[4]:SetYaw(math.rad(180));
+	UI.Logo.assets[4]:SetPosition(0, 0, 0);
+	UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[4]:SetPaused(true);
+	UI.Logo.assets[4]:SetScale(1.5);
+
+	UI.Logo.assets[-4] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-4]");
+    UI.Logo.assets[-4]:SetModelByCreatureDisplayID(87401);
+    UI.Logo.assets[-4]:SetYaw(math.rad(180));
+	UI.Logo.assets[-4]:SetPosition(0, 0, 0);
+	UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"]);
+	UI.Logo.assets[-4]:SetPaused(true);
+	UI.Logo.assets[-4]:SetScale(1.5);
+
+	-- Mist fx
+	--[[
+	UI.Logo.assets[5] = UI.Logo.scene:CreateActor("UI.Logo.assets[5]");
+    UI.Logo.assets[5]:SetModelByFileID(1777475);
+    --UI.Logo.assets[-5]:SetYaw(math.rad(180));
+	UI.Logo.assets[5]:SetPosition(20, 0, -8);
+	--UI.Logo.assets[-5]:SetAnimation(Zee.animIndex["Stand"]);
+	UI.Logo.assets[5]:SetPaused(true);
+	UI.Logo.assets[5]:SetScale(0.3);
+	--]]
+	-- Clouds
+	UI.Logo.assets[6] = UI.Logo.bgScene:CreateActor("UI.Logo.assets[6]");
+    UI.Logo.assets[6]:SetModelByFileID(394984);
+	UI.Logo.assets[6]:SetYaw(math.rad(90));
+	UI.Logo.assets[6]:SetPosition(0, -0.3, -0.1);
+	UI.Logo.assets[6]:SetAnimation(Zee.animIndex["Stand"], 0, 0.1);
+	UI.Logo.assets[6]:SetScale(3);
+
+end
+
+--------------------------------------
+--              Sound               --
+--------------------------------------
+local pos = 0;
+local willPlay;
+local soundHandle = 0;
+function Sound.Update()
+	--[[
+	pos = pos + 1;
+	if pos == 1 then
+		willPlay, soundHandle = PlaySoundFile(537914, "Master");
+	end
+	if pos == 6 then
+		StopSound(soundHandle, 0);
+		pos = 0;
+	end
+	-]]
+end
 
 --------------------------------------
 --             Cutscene             --
@@ -570,6 +798,55 @@ function Cutscene.Update()
 				Cutscene.Stop();
 
 				Game.Restart(); -- Just restarting the game for now, UI is the last thing I'll mess with
+			end
+		elseif Cutscene.current == "Logo" then
+			if UI.Logo ~= nil then
+				Cutscene.time = Cutscene.time + 1;
+
+				--local playSpeed = (2 - (Cutscene.time / 60)) * 2;
+				local frame = (sin((Cutscene.time / 2) * math.pi / 4) + 1) / 2;
+				local posOffs = 2;
+				local hOffs = -1;
+
+				-- Left side npc
+				local scale1 = UI.Logo.assets[1]:GetScale();
+				UI.Logo.assets[1]:SetPaused(true);
+				UI.Logo.assets[-1]:SetPaused(true);
+				UI.Logo.assets[1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+				UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+				UI.Logo.assets[1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
+				UI.Logo.assets[-1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
+
+				-- Right side npc
+				local scale2 = UI.Logo.assets[2]:GetScale();
+				UI.Logo.assets[2]:SetPaused(true);
+				UI.Logo.assets[-2]:SetPaused(true);
+				UI.Logo.assets[2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+				UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+				UI.Logo.assets[2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs)/ scale2);
+				UI.Logo.assets[-2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs) / scale2);
+
+				-- Monster npc
+				local scale3 = UI.Logo.assets[3]:GetScale();
+				UI.Logo.assets[3]:SetPaused(true);
+				UI.Logo.assets[-3]:SetPaused(true);
+				UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+				UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+				UI.Logo.assets[3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
+				UI.Logo.assets[-3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
+
+				-- Center npc
+				local scale4 = UI.Logo.assets[4]:GetScale();
+				UI.Logo.assets[4]:SetPaused(true);
+				UI.Logo.assets[-4]:SetPaused(true);
+				UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+				UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+				UI.Logo.assets[4]:SetPosition(frame / scale4 - 4, 0, -1 + hOffs);
+				UI.Logo.assets[-4]:SetPosition(frame / scale4 - 4, 0, -1.2 + hOffs);
+
+				if Cutscene.time >= 120 * 2 then
+					Cutscene.Stop();
+				end
 			end
 		end
 	end
@@ -1000,12 +1277,15 @@ function Game.Initialize()
 	-- Debug init --
 	Canvas.DEBUG_CreateCaracterTrails();
 	--Physics.DEBUG_CreateColliderFrames();
+
+	UI.Initialize();
 end
 
 --------------------------------------
 --			Update Loop				--
 --------------------------------------
 function Game.Update(self, elapsed)
+	Game.realTime = Game.realTime + Game.UPDATE_INTERVAL;
 	if (Game.paused == false and Game.over == false) or Game.debugStep == true then
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
 		while (Game.timeSinceLastUpdate > Game.UPDATE_INTERVAL) do
@@ -1016,15 +1296,17 @@ function Game.Update(self, elapsed)
 			Physics.Update();
 			Canvas.DEBUG_UpdateCharacterTrails();
 			LevelGenerator.Update();
+			Sound.Update();
 			--Physics.DEBUG_UpdateColliderFrames()
 			Game.travelledDistance = Game.travelledDistance + (Game.speed / Game.SCENE_SYNC);
 
-			Game.time  = Game.time + Game.UPDATE_INTERVAL;
+			Game.time = Game.time + Game.UPDATE_INTERVAL;
 			Game.timeSinceLastUpdate = Game.timeSinceLastUpdate - Game.UPDATE_INTERVAL;
 		end
 	end
 	-- Things that get updated even if game over or paused
 	Cutscene.Update();
+	UI.Animate();
 end
 
 
