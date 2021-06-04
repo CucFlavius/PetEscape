@@ -17,6 +17,13 @@
 --	 time, but also for the chance to think about how puzzles can	--
 --	 be designed around the limitation of character interaction		--
 ----------------------------------------------------------------------
+
+-- Things of interest
+-- TODO : Delete these
+-- Interface/Common/CommonIcons.png
+-- k_pagetext.ttf
+
+
 --------------------------------------
 --				Classes 			--
 --------------------------------------
@@ -30,6 +37,8 @@ Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
 Zee.DinoGame.Cutscene = Zee.DinoGame.Cutscene or {}
 Zee.DinoGame.Sound = Zee.DinoGame.Sound or {}
 Zee.DinoGame.UI = Zee.DinoGame.UI or {}
+Zee.DinoGame.FX = Zee.DinoGame.FX or {}
+Zee.DinoGame.FX.Text = Zee.DinoGame.FX.Text or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
@@ -40,6 +49,7 @@ local LevelGenerator = Zee.DinoGame.LevelGenerator;
 local Cutscene = Zee.DinoGame.Cutscene;
 local Sound = Zee.DinoGame.Sound;
 local UI = Zee.DinoGame.UI;
+local FX = Zee.DinoGame.FX;
 Canvas.Ground = {};
 
 --------------------------------------
@@ -66,7 +76,7 @@ Player.currentLandTime = 0;
 Player.jumpHeight = 0;
 Player.yForce = 0;
 Player.yForceDiv = 10;
-Game.paused = false;
+Game.paused = true;
 Game.over = false;
 Game.speed = 2;
 Game.debugStep = false;
@@ -76,8 +86,10 @@ LevelGenerator.puzzlePosition = 0;
 LevelGenerator.totalObjects = 0;
 Physics.groundCollided = false;
 Cutscene.current = "None";
+Cutscene.time = 0;
 Game.time = 0;
 Game.realTime = 0;
+Game.initialized = false;
 
 --------------------------------------
 --				Settings			--
@@ -188,6 +200,54 @@ Game.CharacterDisplayIDs =
 	90029, -- 2459259 creature/babyraptor/babyraptor.m2
 };
 
+Game.Fonts = 
+{
+	"arialn",
+	"frizqt__", "frizqt___cyr",
+	"skurri", "skurri_cyr",
+	"morpheus", "morpheus_cyr",
+	"blei00d",
+	"arhei", "arheiuhk_bd",
+	"bkai00m",
+	"2002", "2002b",
+	"nim_____",
+	"bhei00m", "bhei01b",
+	"arkai_c", "arkai_t",
+	"k_pagetext",
+	"k_damage",
+};
+
+Game.FX.Symbols = 
+{
+	[" "] = { fileID = 0      , w = 1  , h = 1  , x =  0  , y =  0 , fw = 40 },
+	["A"] = { fileID = 1084372, w = 400, h = 100, x = -31 , y =  0 , fw = 40 },
+	["B"] = { fileID = 1084372, w = 450, h = 100, x =  5  , y =  0 , fw = 40 },
+	["C"] = { fileID = 1084371, w = 420, h = 100, x = -73 , y =  0 , fw = 40 },
+	["D"] = { fileID = 1084392, w = 410, h = 100, x = -370, y =  0 , fw = 35 },
+	["E"] = { fileID = 1084371, w = 480, h = 100, x = -175, y =  0 , fw = 40 },
+	["F"] = { fileID = 1084397, w = 400, h = 100, x = -120, y =  0 , fw = 30 },
+	["G"] = { fileID = 1084392, w = 410, h = 100, x = -171, y =  0 , fw = 35 },
+	["H"] = { fileID = 1084371, w = 400, h = 100, x = -108, y =  0 , fw = 40 },
+	["I"] = { fileID = 1084384, w = 400, h = 100, x = -288 ,y =  0 , fw = 20 },
+	["J"] = {},
+	["K"] = { fileID = 1084373, w = 400, h = 100, x = -216 ,y =  0 , fw = 35 },
+	["L"] = { fileID = 1084371, w = 450, h = 100, x = -48 , y =  0 , fw = 30 },
+	["M"] = { fileID = 1084371, w = 400, h = 100, x = -180, y =  0 , fw = 50 },
+	["N"] = { fileID = 1084372, w = 400, h = 100, x = -110, y =  0 , fw = 40 },
+	["O"] = { fileID = 1084397, w = 400, h = 100, x = -151, y =  0 , fw = 40 },
+	["P"] = { fileID = 1084419, w = 400, h = 100, x = -31 , y =  0 , fw = 35 },
+	["Q"] = { fileID = 1084378, w = 400, h = 100, x = -168, y =  21, fw = 45 },
+	["R"] = { fileID = 1084372, w = 420, h = 100, x = -75 , y =  0 , fw = 40 },
+	["S"] = { fileID = 1084392, w = 450, h = 100, x =  5  , y =  0 , fw = 40 },
+	["T"] = { fileID = 1084397, w = 450, h = 100, x =  1  , y =  0 , fw = 40 },
+	["U"] = { fileID = 1084384, w = 400, h = 100, x = -30 , y =  0 , fw = 40 },
+	["V"] = { fileID = 1084374, w = 440, h = 100, x = -178, y = -22, fw = 36 },
+	["W"] = { fileID = 1084374, w = 400, h = 100, x = -37 , y = -22, fw = 50 },
+	["X"] = { fileID = 1084385, w = 400, h = 100, x = -29 , y =  24, fw = 39 },
+	["Y"] = { fileID = 1084371, w = 400, h = 100, x = -230, y =  0 , fw = 34 },
+	["Z"] = {},
+};
+
 --------------------------------------
 --		       Game State			--
 --------------------------------------
@@ -199,6 +259,7 @@ end
 function Game.Resume()
 	Game.paused = false;
 	Canvas.character:SetPaused(false);
+	Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
 end
 
 function Game.Over(died)
@@ -248,6 +309,18 @@ function Game.Restart()
 	LevelGenerator.puzzlePosition = 0;
 	Physics.groundCollided = false;
 	Cutscene.current = "None";
+end
+
+function Game.Open()
+	UI.Logo.scene:Show();
+	UI.Logo.shadowScene:Show();
+	UI.Logo.bgScene:Show();
+	Game.mainWindow:Hide();
+	Game.mainWindow:SetAlpha(0);
+	UI.Logo.scene:SetAlpha(1);
+	UI.Logo.shadowScene:SetAlpha(1);
+	UI.Logo.bgScene:SetAlpha(1);
+	Cutscene.Play("Logo");
 end
 
 --------------------------------------
@@ -384,7 +457,9 @@ function Canvas.Create()
 
 	-- Create graphics frames --
 	Canvas.CreateGround();
+	Canvas.UpdateGround();
 	Canvas.CreateEnvironment();
+	Canvas.UpdateEnvironment();
 	Canvas.CreateMainScene();
 end
 
@@ -485,7 +560,6 @@ function Canvas.CreateGround()
 	Canvas.Ground.floorBrightnessFrame.texture:SetAllPoints(Canvas.Ground.floorBrightnessFrame);
 	Canvas.Ground.floorBrightnessFrame.texture:SetBlendMode("ADD");
 	Canvas.Ground.floorBrightnessFrame:SetFrameLevel(51);
-
 end
 
 function Canvas.UpdateGround()
@@ -523,9 +597,7 @@ function Canvas.CreateMainScene()
     Canvas.character:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
     Canvas.character:SetYaw(math.rad(-90));
 	Canvas.character:SetPosition(0, 21, 0);
-    Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
-
-	--print(Canvas.character:GetActiveBoundingBox());
+	Canvas.character:SetPaused(true);
 
 	-- Create character blob shadow --
 	Canvas.dinoShadowBlobFrame = CreateFrame("Frame", "Canvas.dinoShadowBlobFrame", Canvas.frame);
@@ -543,13 +615,26 @@ end
 --		  	     UI					--
 --------------------------------------
 function UI.Initialize()
-	-- pausing stuff for testing purposes
-	Game.Update(nil, 0.1);		-- running one update to make sure the graphics are in the correct state
-	Game.Pause();
-	--Canvas.frame:SetScale(1);
+	-- Create main window --
+	Game.mainWindow = Win.CreateWindow(0, 0, Game.width, Game.height, UIParent, "CENTER", "CENTER", true, "Pet Escape");
+	Game.mainWindow:SetIgnoreParentScale(true);		-- This way the camera doesn't get offset when the wow window or UI changes size/aspect
+	Game.mainWindow:SetScale(1.5);
+	Game.mainWindow:Hide();
 
-	--UI.CreateMainMenu();
+	--Game.menuWindow = Win.CreateFrame
+
+	UI.CreateMainMenu();
+
+	-- Create logo frames --
 	UI.CreateLogo();
+	UI.CreateLogoText();
+
+	-- Run first frame of the logo animation --
+	Cutscene.isPlaying = true;
+	Cutscene.current = "Logo";
+	Cutscene.Update();
+	Cutscene.current = "None";
+	Cutscene.isPlaying = false;
 end
 
 function UI.Animate()
@@ -558,17 +643,149 @@ end
 
 function UI.CreateMainMenu()
 	UI.MainMenu = {}
+	UI.MainMenu.frame = CreateFrame("Frame", "UI.MainMenu.frame", Game.mainWindow);
+	UI.MainMenu.frame:SetPoint("CENTER", Game.mainWindow, "CENTER", 0, 0);
+	UI.MainMenu.frame:SetSize(Game.width, Game.height);
+--[[
+	UI.MainMenu.bgFrame = CreateFrame("Frame", "UI.MainMenu.bgFrame", UI.MainMenu.frame);
+	UI.MainMenu.bgFrame:SetPoint("CENTER", Game.mainWindow, "CENTER", 0, 0);
+	UI.MainMenu.bgFrame:SetSize(Game.height, Game.width);
+	UI.MainMenu.bgFrame:SetFrameLevel(1200);
+	UI.MainMenu.bgFrame.texture = UI.MainMenu.bgFrame:CreateTexture("UI.MainMenu.bgFrame.texture","BACKGROUND")
+	UI.MainMenu.bgFrame.texture:SetTexture(1883578, "REPEAT", "REPEAT");
+	UI.MainMenu.bgFrame.texture:SetTexCoord(0,2,0,4);
+	UI.MainMenu.bgFrame.texture:SetRotation(math.rad(90));
+	UI.MainMenu.bgFrame.texture:SetAllPoints(UI.MainMenu.bgFrame);
+--]]
+	UI.MainMenu.menuBgFrame = CreateFrame("Frame", "UI.MainMenu.menuBgFrame", UI.MainMenu.frame);
+	UI.MainMenu.menuBgFrame:SetPoint("CENTER", UI.MainMenu.frame, "CENTER", 0, 0);
+	UI.MainMenu.menuBgFrame:SetSize(200, 200);
+	UI.MainMenu.menuBgFrame:SetFrameLevel(1200);
+	UI.MainMenu.menuBgFrame.texture = UI.MainMenu.menuBgFrame:CreateTexture("UI.MainMenu.bgFrame.texture","BACKGROUND")
+	UI.MainMenu.menuBgFrame.texture:SetTexture(3640932, "CLAMP", "CLAMP");
+	UI.MainMenu.menuBgFrame.texture:SetTexCoord(0,0.65,0,0.575);
+	--UI.MainMenu.menuBgFrame.texture:SetRotation(math.rad(-90));
+	UI.MainMenu.menuBgFrame.texture:SetAllPoints(UI.MainMenu.menuBgFrame);
+
+	UI.MainMenu.buttonsHolder = CreateFrame("Frame", "UI.MainMenu.buttonsHolder", UI.MainMenu.frame);
+	UI.MainMenu.buttonsHolder:SetPoint("CENTER", UI.MainMenu.frame, "CENTER", 0, 0);
+	UI.MainMenu.buttonsHolder:SetSize(200, 200);
+	UI.MainMenu.buttonsHolder:SetFrameLevel(1201);
+	--UI.MainMenu.buttonsHolder.texture = UI.MainMenu.buttonsHolder:CreateTexture("UI.MainMenu.buttonsHolder.texture","BACKGROUND")
+	--UI.MainMenu.buttonsHolder.texture:SetColorTexture(0,0,0);
+	--UI.MainMenu.buttonsHolder.texture:SetAllPoints(UI.MainMenu.buttonsHolder);
+
+
+	UI.MainMenu.buttons = {};
+	UI.MainMenu.buttonTexts = {};
+
+	UI.MainMenu.buttons[1] = CreateFrame("Frame", "UI.MainMenu.buttons[1]", UI.MainMenu.buttonsHolder);
+	UI.MainMenu.buttons[1]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, 0);
+	UI.MainMenu.buttons[1]:SetSize(170, 20);
+	UI.MainMenu.buttons[1]:SetFrameLevel(1201);
+	UI.MainMenu.buttons[1]:EnableMouse()
+	UI.MainMenu.buttons[1].texture = UI.MainMenu.buttons[1]:CreateTexture("UI.MainMenu.buttons[1].texture","BACKGROUND")
+	UI.MainMenu.buttons[1].texture:SetColorTexture(0,0,0, 0.1);
+	UI.MainMenu.buttons[1].texture:SetAllPoints(UI.MainMenu.buttons[1]);
+	UI.MainMenu.buttons[1]:SetScript('OnEnter', function() UI.MainMenu.buttons[1]:SetFrameLevel(1202) UI.MainMenu.buttons[1]:SetScale(2) end)
+	UI.MainMenu.buttons[1]:SetScript('OnLeave', function() UI.MainMenu.buttons[1]:SetFrameLevel(1201) UI.MainMenu.buttons[1]:SetScale(1) end)
+	UI.MainMenu.buttonTexts[1] = FX.Text.CreateWord("NEW GAME", 0, 0, UI.MainMenu.buttons[1] , 1, 0.5, 1, 1, 1, "LEFT")
+	UI.MainMenu.buttonTexts[-1] = FX.Text.CreateWord("NEW GAME", 0, 0, UI.MainMenu.buttons[1] , 1, 0.5, 0, 0, 0, "LEFT")
+
+	UI.MainMenu.buttons[2] = CreateFrame("Frame", "UI.MainMenu.buttons[2]", UI.MainMenu.buttonsHolder);
+	UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25);
+	UI.MainMenu.buttons[2]:SetSize(150, 20);
+	UI.MainMenu.buttons[2]:SetFrameLevel(1201);
+	UI.MainMenu.buttons[2]:EnableMouse()
+	UI.MainMenu.buttons[2].texture = UI.MainMenu.buttons[2]:CreateTexture("UI.MainMenu.buttons[2].texture","BACKGROUND")
+	UI.MainMenu.buttons[2].texture:SetColorTexture(0,0,0, 0.1);
+	UI.MainMenu.buttons[2].texture:SetAllPoints(UI.MainMenu.buttons[2]);
+	UI.MainMenu.buttons[2]:SetScript('OnEnter', function() UI.MainMenu.buttons[2]:SetScale(2) UI.MainMenu.buttons[2]:SetFrameLevel(1202) UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25 / 2) end)
+	UI.MainMenu.buttons[2]:SetScript('OnLeave', function() UI.MainMenu.buttons[2]:SetScale(1) UI.MainMenu.buttons[2]:SetFrameLevel(1201) UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25) end)
+	UI.MainMenu.buttonTexts[2] = FX.Text.CreateWord("SETTINGS", 0, 0, UI.MainMenu.buttons[2] , 1, 0.5, 1, 1, 1, "LEFT")
+	UI.MainMenu.buttonTexts[-2] = FX.Text.CreateWord("SETTINGS", 0, 0, UI.MainMenu.buttons[2] , 1, 0.5, 0, 0, 0, "LEFT")
+	--UI.CreateRoundedFrame(0, 0, 300, 200, 40);
+
 	UI.MainMenu.assets = {};
-	UI.MainMenu.scene = CreateFrame("ModelScene", "UI.MainMenu.scene", Game.mainWindow);
-    UI.MainMenu.scene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
+	UI.MainMenu.scene = CreateFrame("ModelScene", "UI.MainMenu.scene", UI.MainMenu.frame);
+    UI.MainMenu.scene:SetPoint("CENTER", UI.MainMenu.frame, "CENTER", 0, 0);
     UI.MainMenu.scene:SetSize(Game.width, Game.height);
     UI.MainMenu.scene:SetCameraPosition(-10, 0, 0);
-	UI.MainMenu.scene:SetFrameLevel(1200);
+	UI.MainMenu.scene:SetFrameLevel(1201);
 	UI.MainMenu.scene:SetCameraFarClip(1000);
 	UI.MainMenu.scene:SetLightDirection(0.5, 1, -1);
 	UI.MainMenu.scene:SetCameraFieldOfView(math.rad(90));
+	--UI.CreateMainMenuFrame();
+end
 
-	UI.CreateMainMenuFrame();
+function UI.CreateRoundedFrame(x, y, w, h, cornerSize)
+	local MF = CreateFrame("Frame", "MF", UI.MainMenu.frame); 
+	MF:SetPoint("CENTER", x, y);
+	MF:SetSize(w - cornerSize, h);
+	MF:SetFrameLevel(1201);
+	MF.texture = MF:CreateTexture("MF.texture","BACKGROUND")
+	MF.texture:SetColorTexture(1, 1, 1);
+	MF.texture:SetAllPoints(MF);
+
+	local ED = CreateFrame("Frame", "ED", MF); 
+	ED:SetPoint("CENTER", x, y);
+	ED:SetSize(w, h - cornerSize);
+	ED:SetFrameLevel(1201);
+	ED.texture = ED:CreateTexture("ED.texture","BACKGROUND")
+	ED.texture:SetColorTexture(1, 1, 1);
+	ED.texture:SetAllPoints(ED);
+
+	local UL = CreateFrame("Frame", "UL", MF);
+	UL:SetSize(cornerSize / 2 + 1, cornerSize / 2 + 1);
+	UL:SetPoint("TOPLEFT", -cornerSize / 2 - 0.5, 0.5);
+	UL:SetFrameLevel(1201);
+	UL.texture = UL:CreateTexture("UL.texture","BACKGROUND")
+	UL.texture:SetColorTexture(1, 1, 1);
+	UL.texture:SetAllPoints(UL);
+	UL.mask = UL:CreateMaskTexture()
+	UL.mask:SetTexture(186178, "CLAMP", "CLAMP")
+	UL.mask:SetSize(cornerSize, cornerSize);
+	UL.mask:SetPoint("TOPLEFT", 0, 0)
+	UL.texture:AddMaskTexture(UL.mask)
+
+	local UR = CreateFrame("Frame", "UR", MF);
+	UR:SetSize(cornerSize / 2 + 1, cornerSize / 2 + 1);
+	UR:SetPoint("TOPRIGHT", cornerSize / 2 + 0.5, 0.5);
+	UR:SetFrameLevel(1201);
+	UR.texture = UR:CreateTexture("UR.texture","BACKGROUND")
+	UR.texture:SetColorTexture(1, 1, 1);
+	UR.texture:SetAllPoints(UR);
+	UR.mask = UR:CreateMaskTexture()
+	UR.mask:SetTexture(186178, "CLAMP", "CLAMP")
+	UR.mask:SetSize(cornerSize, cornerSize);
+	UR.mask:SetPoint("TOPRIGHT", 0, 0)
+	UR.texture:AddMaskTexture(UR.mask)
+
+	local LL = CreateFrame("Frame", "LL", MF);
+	LL:SetSize(cornerSize / 2 + 1, cornerSize / 2 + 1);
+	LL:SetPoint("BOTTOMLEFT", -cornerSize / 2 - 0.5, -0.5);
+	LL:SetFrameLevel(1201);
+	LL.texture = LL:CreateTexture("LL.texture","BACKGROUND")
+	LL.texture:SetColorTexture(1, 1, 1);
+	LL.texture:SetAllPoints(LL);
+	LL.mask = LL:CreateMaskTexture()
+	LL.mask:SetTexture(186178, "CLAMP", "CLAMP")
+	LL.mask:SetSize(cornerSize, cornerSize);
+	LL.mask:SetPoint("BOTTOMLEFT", 0, 0)
+	LL.texture:AddMaskTexture(LL.mask)
+
+	local LR = CreateFrame("Frame", "LR", MF);
+	LR:SetSize(cornerSize / 2 + 1, cornerSize / 2 + 1);
+	LR:SetPoint("BOTTOMRIGHT", cornerSize / 2 + 0.5, -0.5);
+	LR:SetFrameLevel(1201);
+	LR.texture = LR:CreateTexture("LR.texture","BACKGROUND")
+	LR.texture:SetColorTexture(1, 1, 1);
+	LR.texture:SetAllPoints(LR);
+	LR.mask = LR:CreateMaskTexture()
+	LR.mask:SetTexture(186178, "CLAMP", "CLAMP")
+	LR.mask:SetSize(cornerSize, cornerSize);
+	LR.mask:SetPoint("BOTTOMRIGHT", 0, 0)
+	LR.texture:AddMaskTexture(LR.mask)
 end
 
 function UI.CreateMainMenuFrame()
@@ -612,6 +829,26 @@ function UI.CreateMainMenuFrame()
 end
 
 function UI.AnimateMainMenu()
+	local x, y;
+	local speed = 200;
+	local ofs = 50;
+	local ofs2 = 1.5;
+	for b = 1, getn(UI.MainMenu.buttonTexts), 1 do
+		for i = 1, table.getn(UI.MainMenu.buttonTexts[b]), 1 do
+			x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+			--UI.Logo.Text[-1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+			x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+			--UI.Logo.Text[-1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+			x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+			--UI.Logo.Text[-1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+			x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+			--UI.Logo.Text[-1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+		end
+	end
 	--[[
 	if UI.MainMenu ~= nil then
 		UI.MainMenu.scene:SetCameraOrientationByYawPitchRoll(0, math.sin(Game.realTime) / 10 - math.rad(10), 0);
@@ -621,12 +858,20 @@ function UI.AnimateMainMenu()
 end
 
 function UI.CreateLogo()
+	local w = 1000;
+	local h = 1000;
 	UI.Logo = {}
+
+	UI.Logo.parentFrame = CreateFrame("Frame", "UI.Logo.parentFrame", UIParent);
+	UI.Logo.parentFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0);
+	UI.Logo.parentFrame:SetSize(w, h);
+	UI.Logo.parentFrame:SetClipsChildren(false);
+
 	UI.Logo.assets = {};
-	UI.Logo.scene = CreateFrame("ModelScene", "UI.Logo.scene", Game.mainWindow);
-    UI.Logo.scene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
-	UI.Logo.scene:SetFrameStrata("HIGH");
-    UI.Logo.scene:SetSize(Game.width, Game.height);
+	UI.Logo.scene = CreateFrame("ModelScene", "UI.Logo.scene", UI.Logo.parentFrame);
+    UI.Logo.scene:SetPoint("CENTER", UI.Logo.parentFrame, "CENTER", 0, 0);
+	UI.Logo.scene:SetFrameStrata("MEDIUM");
+    UI.Logo.scene:SetSize(w, h);
     UI.Logo.scene:SetCameraPosition(-20, 0, 0);
 	UI.Logo.scene:SetFrameLevel(1200);
 	UI.Logo.scene:SetCameraFarClip(5000);
@@ -635,27 +880,30 @@ function UI.CreateLogo()
 	UI.Logo.scene:SetFogFar(100);
 	UI.Logo.scene:SetFogNear(20);
 	UI.Logo.scene:SetFogColor(0,0,0);
+	UI.Logo.scene:Hide();
 
-	UI.Logo.shadowScene = CreateFrame("ModelScene", "UI.Logo.shadowScene", Game.mainWindow);
-    UI.Logo.shadowScene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
-	UI.Logo.shadowScene:SetFrameStrata("HIGH");
-    UI.Logo.shadowScene:SetSize(Game.width, Game.height);
+	UI.Logo.shadowScene = CreateFrame("ModelScene", "UI.Logo.shadowScene", UI.Logo.parentFrame);
+    UI.Logo.shadowScene:SetPoint("CENTER", UI.Logo.parentFrame, "CENTER", 0, 0);
+	UI.Logo.shadowScene:SetFrameStrata("MEDIUM");
+    UI.Logo.shadowScene:SetSize(w, h);
     UI.Logo.shadowScene:SetCameraPosition(-29, 0, 0);
 	UI.Logo.shadowScene:SetFrameLevel(1200);
 	UI.Logo.shadowScene:SetCameraFarClip(1000);
 	UI.Logo.shadowScene:SetLightDirection(0.5, 1, -1);
 	UI.Logo.shadowScene:SetCameraFieldOfView(math.rad(60));
 	UI.Logo.shadowScene:SetLightVisible(false);
+	UI.Logo.shadowScene:Hide();
 
-	UI.Logo.bgScene = CreateFrame("ModelScene", "UI.Logo.bgScene", Game.mainWindow);
-    UI.Logo.bgScene:SetPoint("BOTTOMLEFT", Game.mainWindow, "BOTTOMLEFT", 0, 0);
-	UI.Logo.bgScene:SetFrameStrata("HIGH");
-    UI.Logo.bgScene:SetSize(Game.width, Game.height);
+	UI.Logo.bgScene = CreateFrame("ModelScene", "UI.Logo.bgScene", UI.Logo.parentFrame);
+    UI.Logo.bgScene:SetPoint("CENTER", UI.Logo.parentFrame, "CENTER", 0, 0);
+	UI.Logo.bgScene:SetFrameStrata("MEDIUM");
+    UI.Logo.bgScene:SetSize(w, h);
     UI.Logo.bgScene:SetCameraPosition(-20, 0, 0);
 	UI.Logo.bgScene:SetFrameLevel(1200);
 	UI.Logo.bgScene:SetCameraFarClip(5000);
 	UI.Logo.bgScene:SetLightDirection(0.5, 1, -1);
 	UI.Logo.bgScene:SetCameraFieldOfView(math.rad(90));
+	UI.Logo.bgScene:Hide();
 
 	-- Left side npc
 	UI.Logo.assets[1] = UI.Logo.scene:CreateActor("UI.Logo.assets[1]");
@@ -745,6 +993,20 @@ function UI.CreateLogo()
 
 end
 
+function UI.CreateLogoText()
+	UI.Logo.Text = {}
+	UI.Logo.TextHolder = CreateFrame("Frame", "UI.Logo.TextHolder", UI.Logo.scene);
+	UI.Logo.TextHolder:SetPoint("CENTER", UI.Logo.scene, "CENTER", -30, -100);
+	UI.Logo.TextHolder:SetFrameStrata("HIGH");
+	UI.Logo.TextHolder:SetFrameLevel(1000);
+    UI.Logo.TextHolder:SetSize(1000, 1000);
+	UI.Logo.Text[1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1);
+	UI.Logo.Text[2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1);
+	UI.Logo.Text[-1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0);
+	UI.Logo.Text[-2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0);
+	UI.Logo.TextHolder:SetScale(1);
+end
+
 --------------------------------------
 --              Sound               --
 --------------------------------------
@@ -803,53 +1065,185 @@ function Cutscene.Update()
 			if UI.Logo ~= nil then
 				Cutscene.time = Cutscene.time + 1;
 
-				--local playSpeed = (2 - (Cutscene.time / 60)) * 2;
-				local frame = (sin((Cutscene.time / 2) * math.pi / 4) + 1) / 2;
-				local posOffs = 2;
-				local hOffs = -1;
+				if Cutscene.time <= 130 then
+					local scale = max(0.01, sin(Cutscene.time) * 1.1);
+					UI.Logo.scene:SetScale(scale);
+					UI.Logo.shadowScene:SetScale(scale);
+					UI.Logo.bgScene:SetScale(scale);
+				end
 
-				-- Left side npc
-				local scale1 = UI.Logo.assets[1]:GetScale();
-				UI.Logo.assets[1]:SetPaused(true);
-				UI.Logo.assets[-1]:SetPaused(true);
-				UI.Logo.assets[1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
-				UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
-				UI.Logo.assets[1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
-				UI.Logo.assets[-1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
+				if Cutscene.time <= 190 then
+					local ofs2 = max(0.7, Cutscene.time / 180);
+					local scale = sin((Cutscene.time + 30) * ofs2) * 1.4;
+					scale = max(1, scale);
 
-				-- Right side npc
-				local scale2 = UI.Logo.assets[2]:GetScale();
-				UI.Logo.assets[2]:SetPaused(true);
-				UI.Logo.assets[-2]:SetPaused(true);
-				UI.Logo.assets[2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
-				UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
-				UI.Logo.assets[2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs)/ scale2);
-				UI.Logo.assets[-2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs) / scale2);
+					UI.Logo.TextHolder:SetScale(scale + 0.3);
+				end
 
-				-- Monster npc
-				local scale3 = UI.Logo.assets[3]:GetScale();
-				UI.Logo.assets[3]:SetPaused(true);
-				UI.Logo.assets[-3]:SetPaused(true);
-				UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-				UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-				UI.Logo.assets[3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
-				UI.Logo.assets[-3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
+				if Cutscene.time <= 320 then
+					local x, y;
+					local speed = 200;
+					local ofs = 50;
+					local ofs2 = 1.5;
+					for i = 1, table.getn(UI.Logo.Text[1]), 1 do
+						x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+						UI.Logo.Text[-1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+						UI.Logo.Text[-1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+						UI.Logo.Text[-1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+						UI.Logo.Text[-1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+					end
 
-				-- Center npc
-				local scale4 = UI.Logo.assets[4]:GetScale();
-				UI.Logo.assets[4]:SetPaused(true);
-				UI.Logo.assets[-4]:SetPaused(true);
-				UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-				UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-				UI.Logo.assets[4]:SetPosition(frame / scale4 - 4, 0, -1 + hOffs);
-				UI.Logo.assets[-4]:SetPosition(frame / scale4 - 4, 0, -1.2 + hOffs);
+					for i = 1, table.getn(UI.Logo.Text[2]), 1 do
+						x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+						UI.Logo.Text[-2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[2][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+						UI.Logo.Text[-2][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[2][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+						UI.Logo.Text[-2][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+						x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
+						UI.Logo.Text[2][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+						UI.Logo.Text[-2][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+					end
+				end
 
-				if Cutscene.time >= 120 * 2 then
+				local offs1 = 150;
+				if Cutscene.time <= 240 + offs1 then
+					--local playSpeed = (2 - (Cutscene.time / 60)) * 2;
+					local frame = (sin(((Cutscene.time - offs1) / 2) * math.pi / 4) + 1) / 2;
+					local posOffs = 2;
+					local hOffs = -1;
+
+					-- Left side npc
+					local scale1 = UI.Logo.assets[1]:GetScale();
+					UI.Logo.assets[1]:SetPaused(true);
+					UI.Logo.assets[-1]:SetPaused(true);
+					UI.Logo.assets[1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+					UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+					UI.Logo.assets[1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
+					UI.Logo.assets[-1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
+
+					-- Right side npc
+					local scale2 = UI.Logo.assets[2]:GetScale();
+					UI.Logo.assets[2]:SetPaused(true);
+					UI.Logo.assets[-2]:SetPaused(true);
+					UI.Logo.assets[2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+					UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+					UI.Logo.assets[2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs)/ scale2);
+					UI.Logo.assets[-2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs) / scale2);
+
+					-- Monster npc
+					local scale3 = UI.Logo.assets[3]:GetScale();
+					UI.Logo.assets[3]:SetPaused(true);
+					UI.Logo.assets[-3]:SetPaused(true);
+					UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
+					UI.Logo.assets[-3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
+
+					-- Center npc
+					local scale4 = UI.Logo.assets[4]:GetScale();
+					UI.Logo.assets[4]:SetPaused(true);
+					UI.Logo.assets[-4]:SetPaused(true);
+					UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[4]:SetPosition(frame / scale4 - 4, 0, -1 + hOffs);
+					UI.Logo.assets[-4]:SetPosition(frame / scale4 - 4, 0, -1.2 + hOffs);
+				end
+
+				local cutsceneBlendTime = 350;
+				local cutsceneBlendSpeed = 0.05;
+				if Cutscene.time >= cutsceneBlendTime then
+
+					Game.mainWindow:Show();
+					local alpha = (Cutscene.time - cutsceneBlendTime) * cutsceneBlendSpeed;
+					Game.mainWindow:SetAlpha(alpha);
+					UI.Logo.scene:SetAlpha(1 - alpha);
+					UI.Logo.shadowScene:SetAlpha(1 - alpha);
+					UI.Logo.bgScene:SetAlpha(1 - alpha);
+				end
+
+				if Cutscene.time >= 400 then
 					Cutscene.Stop();
+					Game.mainWindow:SetAlpha(1);
+					UI.Logo.scene:Hide();
+					UI.Logo.shadowScene:Hide();
+					UI.Logo.bgScene:Hide();
 				end
 			end
 		end
 	end
+end
+
+function FX.rotate_point(cx, cy, angle)
+	local s = sin(angle);
+	local c = cos(angle);
+
+	local p = { x = 1, y = 1 };
+
+	-- translate point back to origin:
+	p.x = p.x - cx;
+	p.y = p.y - cy;
+
+	-- rotate point
+	local xnew = p.x * c - p.y * s;
+	local ynew = p.x * s + p.y * c;
+
+	-- translate point back:
+	p.x = xnew + cx;
+	p.y = ynew + cy;
+	return p.x, p.y;
+end
+
+--------------------------------------
+--			    Effects				--
+--------------------------------------
+function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
+	local sInfo = Game.FX.Symbols[symbol];
+	local s = {};
+	s = CreateFrame("Frame", "TextTestA", parent);
+	s:SetWidth(sInfo.fw);
+	s:SetHeight(40);
+	s:SetScale(scale);
+	s:SetPoint(point, x, y);
+	s.texture = s:CreateTexture("s","BACKGROUND")
+	s.texture:SetColorTexture(r, g, b);
+	s.texture:SetAllPoints(s);
+	s.mask = s:CreateMaskTexture()
+	s.mask:SetTexture(sInfo.fileID, "CLAMP", "CLAMP")
+	s.mask:SetSize(sInfo.w, sInfo.h);
+	s.mask:SetPoint("LEFT", sInfo.x, sInfo.y)
+	s.texture:AddMaskTexture(s.mask)
+	return s;
+end
+
+function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
+	if r == nil then r = 1 end
+	if g == nil then g = 1 end
+	if b == nil then b = 1 end
+	if spacing == nil then spacing = 0.8 end
+	if scale == nil then scale = 1 end
+	if point == nil then point = "CENTER" end;
+
+	local length = strlen(word);
+	local w = {};
+	local offs = 0;
+	for	i = 1, length, 1 do
+		local char = string.sub(word, i, i);
+		w[i] = FX.Text.CreateSymbol(char, x + offs, y, parent, scale, r, g, b, point);
+		offs = offs + Game.FX.Symbols[char].fw * spacing;
+	end
+
+	return w;
 end
 
 --------------------------------------
@@ -1255,10 +1649,9 @@ end
 --------------------------------------
 
 function Game.Initialize()
-	-- Create main window --
-	Game.mainWindow = Win.CreateWindow(0, 0, Game.width, Game.height, UIParent, "CENTER", "CENTER", true, "Dino");
-	Game.mainWindow:SetIgnoreParentScale(true);		-- This way the camera doesn't get offset when the wow window or UI changes size/aspect
-	Game.mainWindow:SetScale(1.5);
+	-- Create all UI --
+	UI.Initialize();
+
 	-- Create canvas --
 	Canvas.Create();
 
@@ -1273,18 +1666,19 @@ function Game.Initialize()
 
 	-- Create player input --
 	Game.CreatePlayerInputFrame();
-
+	Game.mainWindow:Show();
 	-- Debug init --
-	Canvas.DEBUG_CreateCaracterTrails();
-	--Physics.DEBUG_CreateColliderFrames();
 
-	UI.Initialize();
+	Canvas.DEBUG_CreateCaracterTrails();
+
+	Game.initialized = true;
 end
 
 --------------------------------------
 --			Update Loop				--
 --------------------------------------
 function Game.Update(self, elapsed)
+	if Game.initialized == false then return end
 	Game.realTime = Game.realTime + Game.UPDATE_INTERVAL;
 	if (Game.paused == false and Game.over == false) or Game.debugStep == true then
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
@@ -1308,6 +1702,5 @@ function Game.Update(self, elapsed)
 	Cutscene.Update();
 	UI.Animate();
 end
-
 
 Game.Initialize();
