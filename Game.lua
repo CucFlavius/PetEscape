@@ -37,8 +37,10 @@ Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
 Zee.DinoGame.Cutscene = Zee.DinoGame.Cutscene or {}
 Zee.DinoGame.Sound = Zee.DinoGame.Sound or {}
 Zee.DinoGame.UI = Zee.DinoGame.UI or {}
+Zee.DinoGame.UI.MainMenu = Zee.DinoGame.UI.MainMenu or {}
 Zee.DinoGame.FX = Zee.DinoGame.FX or {}
 Zee.DinoGame.FX.Text = Zee.DinoGame.FX.Text or {}
+Zee.DinoGame.AI = Zee.DinoGame.AI or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
@@ -50,11 +52,17 @@ local Cutscene = Zee.DinoGame.Cutscene;
 local Sound = Zee.DinoGame.Sound;
 local UI = Zee.DinoGame.UI;
 local FX = Zee.DinoGame.FX;
+local AI = Zee.DinoGame.AI;
 Canvas.Ground = {};
 
 --------------------------------------
 --				Variables			--
 --------------------------------------
+Game.paused = true;
+Game.over = false;
+Game.speed = 2;
+Game.debugStep = false;
+Game.travelledDistance = 0;
 Player.screenX = 160;
 Player.screenY = 90;
 Player.jumping = false;
@@ -67,7 +75,10 @@ Player.jumpHold = false;
 Player.jumpRelease = false;
 Player.worldPosY = 0;
 Player.ground = 0;
+Player.roof = 25;
 Player.posX = 22;
+Player.posY = 0;
+Player.posZ = 0;
 Player.jumpTime = 0;
 Player.currentAnimation = "Run";
 Player.jumpStartPosition = 0;
@@ -76,15 +87,11 @@ Player.currentLandTime = 0;
 Player.jumpHeight = 0;
 Player.yForce = 0;
 Player.yForceDiv = 10;
-Game.paused = true;
-Game.over = false;
-Game.speed = 2;
-Game.debugStep = false;
-Game.travelledDistance = 0;
 LevelGenerator.puzzleLength = 0;
 LevelGenerator.puzzlePosition = 0;
 LevelGenerator.totalObjects = 0;
 Physics.groundCollided = false;
+Physics.roofCollided = false;
 Cutscene.current = "None";
 Cutscene.time = 0;
 Game.time = 0;
@@ -95,6 +102,7 @@ Game.initialized = false;
 --				Settings			--
 --------------------------------------
 Game.devMode = true;
+Game.debugNoMenu = true;
 Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
 Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
 Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
@@ -109,6 +117,7 @@ Canvas.Ground.lightRimIntensity = 0.3;
 Canvas.Ground.depthShadowIntensity = 1;
 Canvas.Ground.depthShadowScale = 1;
 Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
+Canvas.ceiling = 35;
 Player.jumpKey = "W";
 Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
 Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
@@ -121,34 +130,69 @@ LevelGenerator.objectPoolSize = 10;
 --------------------------------------
 --			     Data				--
 --------------------------------------
-Game.ObjectDefinitions = 
-{
-	["Player"] = 
+function Game.CreateObjectDefinitions()
+	Game.ObjectDefinitions = 
 	{
-		id = 0,
-		scale = 1,
-		collider = 
+		["Player"] = 
 		{
-			x = 0,
-			y = 0,
-			w = 5,
-			h = 5
+			id = 0,
+			scale = 1,
+			solid = false,
+			collider = 
+			{
+				x = 0,
+				y = 0,
+				w = 5,
+				h = 5
+			},
 		},
-	},
 
-	["Crate"] = 
-	{ 
-		id = 2261922,
-		scale = 4,
-		collider = 
-		{
-			x = 0,
-			y = 0,
-			w = 5,
-			h = 5
+		["Crate"] = 
+		{ 
+			id = 2261922,
+			scale = 4,
+			solid = true,
+			collider = 
+			{
+				x = 0,
+				y = 0,
+				w = 5,
+				h = 5
+			},
+			ai = nil,
 		},
-	},
-}
+
+		["Cannon"] = 
+		{
+			id = 1968701,
+			scale = 1.5,
+			solid = true,
+			collider =
+			{
+				x = 0,
+				y = 0,
+				w = 6,
+				h = 4
+			},
+			ai = { Initialize = AI.CannonInit ,Update = AI.CannonUpdate },
+		},
+
+		["Cannonball"] = 
+		{ 
+			id = 123366,
+			scale = 1,
+			solid = false,
+			collider = 
+			{
+				x = 0,
+				y = 0,
+				w = 2,
+				h = 2
+			},
+			ai = nil,
+		},
+	}
+end
 
 Game.Puzzles =
 {
@@ -156,6 +200,51 @@ Game.Puzzles =
 	{
 		objectCount = 0,
 		length = 1,
+	},
+
+	["4Empty"] =
+	{
+		objectCount = 1,
+		length = 4,
+	},
+
+	["RoofTest"] = 
+	{
+		objectCount = 4,
+		objects = 
+		{ 
+			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
+			{ dName = "Crate", position = { x = 1.27, y = 1.27 * 3 } },
+			{ dName = "Crate", position = { x = 1.27 * 2, y = 1.27 * 3 } },
+			{ dName = "Crate", position = { x = 1.27 * 3, y = 1.27 * 2 } },
+		},
+		length = 1.27 * 4;
+	},
+
+	
+	["RoofSlideTest"] = 
+	{
+		objectCount = 4,
+		objects = 
+		{ 
+			{ dName = "Crate", position = { x = 0, y = 1.27 } },
+			{ dName = "Crate", position = { x = 0, y = 1.27 * 2 } },
+			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
+			{ dName = "Crate", position = { x = 0, y = 1.27 * 4 } },
+		},
+		length = 6;
+	},
+
+	["CannonTest"] = 
+	{
+		objectCount = 1,
+		objects = 
+		{ 
+			--{ dName = "Crate", position = { x = 0, y = 0 } },
+			{ dName = "Cannon", position = { x = 1.27, y = 0 } },
+			--{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
+		},
+		length = 8;
 	},
 
 	["1Crate"] = 
@@ -178,7 +267,7 @@ Game.Puzzles =
 			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
 			{ dName = "Crate", position = { x = 1.27 * 3, y = 0 } },
 		},
-		length = 1.27 * 4;
+		length = 1.27 * 4 + 2;
 	},
 
 	["4CratesTetris"] = 
@@ -191,7 +280,7 @@ Game.Puzzles =
 			{ dName = "Crate", position = { x = 1.27, y = 1.24 } },
 			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
 		},
-		length = 1.27 * 4 + 6, 		-- leaving some space blank for testing purposes (DELETE the 6)
+		length = 1.27 * 4,
 	},
 };
 
@@ -252,11 +341,17 @@ Game.FX.Symbols =
 --		       Game State			--
 --------------------------------------
 function Game.Pause()
+	if Game.debugNoMenu == false then
+		UI.MainMenu.frame:Show();
+		UI.MainMenu.buttons[1].button:Hide();
+		UI.MainMenu.buttons[3].button:Show();
+	end
 	Game.paused = true;
 	Canvas.character:SetPaused(true);
 end
 
 function Game.Resume()
+	UI.MainMenu.frame:Hide();
 	Game.paused = false;
 	Canvas.character:SetPaused(false);
 	Player.SetAnimation("Run", Game.speed * Player.runAnimationSpeedMultiplier);
@@ -300,6 +395,7 @@ function Game.Restart()
 	Player.jumpHeight = 0;
 	Player.yForce = 0;
 	Player.yForceDiv = 10;
+	Player.roof = Canvas.ceiling;
 	Game.paused = false;
 	Game.over = false;
 	Game.speed = 2;
@@ -308,7 +404,15 @@ function Game.Restart()
 	LevelGenerator.puzzleLength = 0;
 	LevelGenerator.puzzlePosition = 0;
 	Physics.groundCollided = false;
+	Physics.roofCollided = false;
 	Cutscene.current = "None";
+end
+
+function Game.NewGame()
+	UI.MainMenu.frame:Hide();
+	Game.Restart();
+	UI.MainMenu.buttons[1].button:Hide();
+	UI.MainMenu.buttons[3].button:Show();
 end
 
 function Game.Open()
@@ -321,6 +425,13 @@ function Game.Open()
 	UI.Logo.shadowScene:SetAlpha(1);
 	UI.Logo.bgScene:SetAlpha(1);
 	Cutscene.Play("Logo");
+	UI.MainMenu.buttons[1].button:Show();
+	UI.MainMenu.buttons[3].button:Hide();
+end
+
+function Game.Exit()
+	Game.Over(false);
+	Game.mainWindow:Hide();
 end
 
 --------------------------------------
@@ -342,41 +453,54 @@ function LevelGenerator.Update()
 		LevelGenerator.SpawnPuzzle();
 	end
 
-	-- loop through all the objects, and move them
+	-- loop through all the objects, and update them
 	for k = 1, LevelGenerator.totalObjects, 1 do
 		if Game.GameObjects[k].active == true then
 			Game.GameObjects[k].position.x = Game.GameObjects[k].position.x + (Game.speed / Game.SCENE_SYNC);
-			Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x, Game.GameObjects[k].position.y);
+			x1,y1,z1 = Game.GameObjects[k].actor:GetPosition();
+			Game.GameObjects[k].actor:SetPosition(x1, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
+			if Game.GameObjects[k].definition.ai ~= nil then
+				Game.GameObjects[k].definition.ai.Update(Game.GameObjects[k]);
+			end
 			if Game.GameObjects[k].position.x > 10 then
+				Game.GameObjects[k].ai = nil;
 				Game.GameObjects[k].active = false;
+				Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
 			end
 		end
 	end
 end
 
 function LevelGenerator.SpawnPuzzle()
-	local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris" };
+	--local puzzles = { "1Empty", "4Empty", "1Crate", "4CratesLine", "4CratesTetris" };
+	local puzzles = {"RoofSlideTest"};
 	local pick = math.floor(LevelGenerator.random() * table.getn(puzzles)) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
-	LevelGenerator.puzzleLength = puzzle.length;
 	for k = 1, puzzle.objectCount, 1 do
 		LevelGenerator.SpawnObject(puzzle.objects[k].dName, puzzle.objects[k].position)
 	end
+
+	LevelGenerator.puzzleLength = puzzle.length;
 end
 
 function LevelGenerator.SpawnObject(dName, position)
 	local goIndex = LevelGenerator.GetAvailableGameObject();
 	Game.GameObjects[goIndex].active = true;
-	local definitionName = Game.GameObjects[goIndex].definition;
+	local definitionName = Game.GameObjects[goIndex].defName;
 	if dName ~= definitionName then
 		local definition = Game.ObjectDefinitions[dName];
+		Game.GameObjects[goIndex].defName = dName;
 		Game.GameObjects[goIndex].definition = definition;
 		Game.GameObjects[goIndex].actor:SetModelByFileID(definition.id);
 		Game.GameObjects[goIndex].actor:SetScale(definition.scale);
 	end
 	Game.GameObjects[goIndex].position.x = -10 - position.x;
 	Game.GameObjects[goIndex].position.y = 0 + position.y;
+
+	if Game.GameObjects[goIndex].definition.ai ~= nil then
+		Game.GameObjects[goIndex].definition.ai.Initialize(Game.GameObjects[goIndex]);
+	end
 end
 
 function LevelGenerator.GetAvailableGameObject()
@@ -428,6 +552,28 @@ function LevelGenerator.random()
     X1 = math.floor(V/D20)
     X2 = V - X1*D20
     return V/D40
+end
+
+--------------------------------------
+--			       AI				--
+--------------------------------------
+function AI.CannonInit(gameObject)
+	gameObject.currentAnimation = "Emerge";
+	gameObject.ai = {};
+	gameObject.ai.time = 0;
+	gameObject.actor:SetAnimation(Zee.animIndex[gameObject.currentAnimation], 0, 1.5, 1);
+	x,y,z = gameObject.actor:GetPosition();
+	gameObject.actor:SetPosition(x - 2, y, z);
+	gameObject.actor:SetYaw(rad(90));
+end
+
+function AI.CannonUpdate(gameObject)
+	gameObject.ai.time = gameObject.ai.time + 1;
+	if gameObject.ai.time == 40 or gameObject.ai.time == 130 then
+		gameObject.currentAnimation = "SpellCastDirected";
+		gameObject.actor:SetAnimation(Zee.animIndex[gameObject.currentAnimation], 0, 1.2);
+		LevelGenerator.SpawnObject("Cannonball", { x = -3, y = gameObject.position.y -1});
+	end
 end
 
 --------------------------------------
@@ -642,11 +788,10 @@ function UI.Animate()
 end
 
 function UI.CreateMainMenu()
-	UI.MainMenu = {}
 	UI.MainMenu.frame = CreateFrame("Frame", "UI.MainMenu.frame", Game.mainWindow);
 	UI.MainMenu.frame:SetPoint("CENTER", Game.mainWindow, "CENTER", 0, 0);
 	UI.MainMenu.frame:SetSize(Game.width, Game.height);
---[[
+
 	UI.MainMenu.bgFrame = CreateFrame("Frame", "UI.MainMenu.bgFrame", UI.MainMenu.frame);
 	UI.MainMenu.bgFrame:SetPoint("CENTER", Game.mainWindow, "CENTER", 0, 0);
 	UI.MainMenu.bgFrame:SetSize(Game.height, Game.width);
@@ -656,7 +801,7 @@ function UI.CreateMainMenu()
 	UI.MainMenu.bgFrame.texture:SetTexCoord(0,2,0,4);
 	UI.MainMenu.bgFrame.texture:SetRotation(math.rad(90));
 	UI.MainMenu.bgFrame.texture:SetAllPoints(UI.MainMenu.bgFrame);
---]]
+
 	UI.MainMenu.menuBgFrame = CreateFrame("Frame", "UI.MainMenu.menuBgFrame", UI.MainMenu.frame);
 	UI.MainMenu.menuBgFrame:SetPoint("CENTER", UI.MainMenu.frame, "CENTER", 0, 0);
 	UI.MainMenu.menuBgFrame:SetSize(200, 200);
@@ -675,37 +820,15 @@ function UI.CreateMainMenu()
 	--UI.MainMenu.buttonsHolder.texture:SetColorTexture(0,0,0);
 	--UI.MainMenu.buttonsHolder.texture:SetAllPoints(UI.MainMenu.buttonsHolder);
 
-
+	-- Menu buttons --
 	UI.MainMenu.buttons = {};
-	UI.MainMenu.buttonTexts = {};
+	UI.MainMenu.buttons[1] = UI.MainMenu.CreateButton("NEW GAME", UI.MainMenu.ButtonNewGame, 0, 0, 170, 20);
+	UI.MainMenu.buttons[2] = UI.MainMenu.CreateButton("SETTINGS", UI.MainMenu.ButtonSettings, 0, -25, 150, 20);
+	UI.MainMenu.buttons[3] = UI.MainMenu.CreateButton("RESUME", UI.MainMenu.ButtonResume, 0, 0, 125, 20);
+	UI.MainMenu.buttons[3].button:Hide();
+	UI.MainMenu.buttons[4] = UI.MainMenu.CreateButton("EXIT", UI.MainMenu.ButtonExit, 0, -50, 70, 20);
 
-	UI.MainMenu.buttons[1] = CreateFrame("Frame", "UI.MainMenu.buttons[1]", UI.MainMenu.buttonsHolder);
-	UI.MainMenu.buttons[1]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, 0);
-	UI.MainMenu.buttons[1]:SetSize(170, 20);
-	UI.MainMenu.buttons[1]:SetFrameLevel(1201);
-	UI.MainMenu.buttons[1]:EnableMouse()
-	UI.MainMenu.buttons[1].texture = UI.MainMenu.buttons[1]:CreateTexture("UI.MainMenu.buttons[1].texture","BACKGROUND")
-	UI.MainMenu.buttons[1].texture:SetColorTexture(0,0,0, 0.1);
-	UI.MainMenu.buttons[1].texture:SetAllPoints(UI.MainMenu.buttons[1]);
-	UI.MainMenu.buttons[1]:SetScript('OnEnter', function() UI.MainMenu.buttons[1]:SetFrameLevel(1202) UI.MainMenu.buttons[1]:SetScale(2) end)
-	UI.MainMenu.buttons[1]:SetScript('OnLeave', function() UI.MainMenu.buttons[1]:SetFrameLevel(1201) UI.MainMenu.buttons[1]:SetScale(1) end)
-	UI.MainMenu.buttonTexts[1] = FX.Text.CreateWord("NEW GAME", 0, 0, UI.MainMenu.buttons[1] , 1, 0.5, 1, 1, 1, "LEFT")
-	UI.MainMenu.buttonTexts[-1] = FX.Text.CreateWord("NEW GAME", 0, 0, UI.MainMenu.buttons[1] , 1, 0.5, 0, 0, 0, "LEFT")
-
-	UI.MainMenu.buttons[2] = CreateFrame("Frame", "UI.MainMenu.buttons[2]", UI.MainMenu.buttonsHolder);
-	UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25);
-	UI.MainMenu.buttons[2]:SetSize(150, 20);
-	UI.MainMenu.buttons[2]:SetFrameLevel(1201);
-	UI.MainMenu.buttons[2]:EnableMouse()
-	UI.MainMenu.buttons[2].texture = UI.MainMenu.buttons[2]:CreateTexture("UI.MainMenu.buttons[2].texture","BACKGROUND")
-	UI.MainMenu.buttons[2].texture:SetColorTexture(0,0,0, 0.1);
-	UI.MainMenu.buttons[2].texture:SetAllPoints(UI.MainMenu.buttons[2]);
-	UI.MainMenu.buttons[2]:SetScript('OnEnter', function() UI.MainMenu.buttons[2]:SetScale(2) UI.MainMenu.buttons[2]:SetFrameLevel(1202) UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25 / 2) end)
-	UI.MainMenu.buttons[2]:SetScript('OnLeave', function() UI.MainMenu.buttons[2]:SetScale(1) UI.MainMenu.buttons[2]:SetFrameLevel(1201) UI.MainMenu.buttons[2]:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", 0, -25) end)
-	UI.MainMenu.buttonTexts[2] = FX.Text.CreateWord("SETTINGS", 0, 0, UI.MainMenu.buttons[2] , 1, 0.5, 1, 1, 1, "LEFT")
-	UI.MainMenu.buttonTexts[-2] = FX.Text.CreateWord("SETTINGS", 0, 0, UI.MainMenu.buttons[2] , 1, 0.5, 0, 0, 0, "LEFT")
-	--UI.CreateRoundedFrame(0, 0, 300, 200, 40);
-
+	-- Menu 3d asset decoration --
 	UI.MainMenu.assets = {};
 	UI.MainMenu.scene = CreateFrame("ModelScene", "UI.MainMenu.scene", UI.MainMenu.frame);
     UI.MainMenu.scene:SetPoint("CENTER", UI.MainMenu.frame, "CENTER", 0, 0);
@@ -833,28 +956,18 @@ function UI.AnimateMainMenu()
 	local speed = 200;
 	local ofs = 50;
 	local ofs2 = 1.5;
-	for b = 1, getn(UI.MainMenu.buttonTexts), 1 do
-		for i = 1, table.getn(UI.MainMenu.buttonTexts[b]), 1 do
-			x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
-			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
-			--UI.Logo.Text[-1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
-			x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
-			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
-			--UI.Logo.Text[-1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
-			x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
-			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
-			--UI.Logo.Text[-1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
-			x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
-			UI.MainMenu.buttonTexts[b][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
-			--UI.Logo.Text[-1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+	for b = 1, getn(UI.MainMenu.buttons), 1 do
+		for i = 1, getn(UI.MainMenu.buttons[b].text), 1 do
+			x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttons[b].text[i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(0, 0, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttons[b].text[i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(1, 1, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttons[b].text[i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(1, 0, Game.realTime * speed + (i * ofs));
+			UI.MainMenu.buttons[b].text[i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 		end
 	end
-	--[[
-	if UI.MainMenu ~= nil then
-		UI.MainMenu.scene:SetCameraOrientationByYawPitchRoll(0, math.sin(Game.realTime) / 10 - math.rad(10), 0);
-		UI.MainMenu.scene:SetCameraPosition(-12 + math.sin(Game.realTime), 0, math.sin(Game.realTime) - 2);
-	end
-	--]]
 end
 
 function UI.CreateLogo()
@@ -1007,6 +1120,48 @@ function UI.CreateLogoText()
 	UI.Logo.TextHolder:SetScale(1);
 end
 
+function UI.MainMenu.CreateButton(name, action, x, y, w, h)
+	local btn = {};
+	btn.button = CreateFrame("Frame", "btn.button_" .. name, UI.MainMenu.buttonsHolder);
+	btn.button:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", x, y);
+	btn.button:SetSize(w, h);
+	btn.button:SetFrameLevel(1201);
+	btn.button:EnableMouse();
+	--btn.texture = btn.button:CreateTexture("btn.texture","BACKGROUND");
+	--btn.texture:SetColorTexture(0,0,0, 0.1);
+	--btn.texture:SetAllPoints(btn.button);
+	btn.button:SetScript('OnMouseUp', action);
+	btn.button:SetScript('OnEnter', function() btn.button:SetFrameLevel(1202) btn.button:SetScale(2) btn.button:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", x, y / 2) end);
+	btn.button:SetScript('OnLeave', function() btn.button:SetFrameLevel(1201) btn.button:SetScale(1) btn.button:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", x, y) end);
+	btn.text = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 1, 1, 1, "LEFT");
+	btn.shadowText = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 0, 0, 0, "LEFT");
+	return btn;
+end
+
+function UI.MainMenu.ButtonNewGame()
+	if Game.initialized == true then
+		Cutscene.Play("NewGame");
+	end
+end
+
+function UI.MainMenu.ButtonSettings()
+	if Game.initialized == true then
+		print("Open Settings");
+	end
+end
+
+function UI.MainMenu.ButtonResume()
+	if Game.initialized == true then
+		Game.Resume();
+	end
+end
+
+function UI.MainMenu.ButtonExit()
+	if Game.initialized == true then
+		Game.Exit();
+	end
+end
+
 --------------------------------------
 --              Sound               --
 --------------------------------------
@@ -1086,31 +1241,31 @@ function Cutscene.Update()
 					local ofs = 50;
 					local ofs2 = 1.5;
 					for i = 1, table.getn(UI.Logo.Text[1]), 1 do
-						x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(0, 0, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(1, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(1, 0, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 					end
 
 					for i = 1, table.getn(UI.Logo.Text[2]), 1 do
-						x, y = FX.rotate_point(0, 1, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
 						UI.Logo.Text[-2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(0, 0, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(0, 0, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[2][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
 						UI.Logo.Text[-2][i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(1, 1, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(1, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[2][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
 						UI.Logo.Text[-2][i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
-						x, y = FX.rotate_point(1, 0, Game.realTime * speed + (i * ofs));
+						x, y = FX.RotatePoint(1, 0, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[2][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 						UI.Logo.Text[-2][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 					end
@@ -1180,11 +1335,16 @@ function Cutscene.Update()
 					UI.Logo.bgScene:Hide();
 				end
 			end
+		elseif Cutscene.current == "NewGame" then
+			-- TODO --
+
+			Game.NewGame();
+			Cutscene.Stop();
 		end
 	end
 end
 
-function FX.rotate_point(cx, cy, angle)
+function FX.RotatePoint(cx, cy, angle)
 	local s = sin(angle);
 	local c = cos(angle);
 
@@ -1312,6 +1472,13 @@ end
 
 function Player.KeyPress(self, key)
     if key == Player.jumpKey then
+
+		if Game.debugNoMenu == true and Game.paused == true then
+			Game.Resume();
+			Player.inputFrame:SetPropagateKeyboardInput(false);
+			return;
+		end
+
 		if Player.jumpHold == false and Player.canJump == true then
 			Player.jumpHold = true;
 		end
@@ -1335,7 +1502,7 @@ function Player.KeyPress(self, key)
 		if Game.paused == false then
 			Game.Pause();
 		else
-			Game.Resume();
+			Player.inputFrame:SetPropagateKeyboardInput(true);
 		end
 	elseif key == "RIGHT" then
 		if Game.devMode then
@@ -1523,6 +1690,7 @@ function Physics.PlayerCollisionUpdate()
 	local playerCol = Game.ObjectDefinitions["Player"].collider;
 	local px, py, pz = Canvas.character:GetPosition();
 	Player.ground = 0;
+	Player.roof = Canvas.ceiling;
 	Player.isHeldInPlace = false;
 	for k = 1, LevelGenerator.totalObjects, 1 do
 		if Game.GameObjects[k].active == true then
@@ -1533,7 +1701,15 @@ function Physics.PlayerCollisionUpdate()
 			oy = oy * oScale;
 			oz = oz * oScale;
 			
-			Physics.groundCollided = Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+			if definition.solid == true then
+				Physics.groundCollided = Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+				Physics.roofCollided = Physics.RoofCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+				Physics.frontCollided = Physics.FrontCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
+				if Physics.frontCollided == true then 
+					Player.isHeldInPlace = true;
+				end
+			end
+
 			if playerCol.x + py < objCol.x + oy + objCol.w and playerCol.x + py + playerCol.w > objCol.x + oy and playerCol.y + pz < objCol.y + oz + objCol.h and playerCol.y + pz + playerCol.h > objCol.y + oz then
 				-- collision detected!
 				Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
@@ -1545,8 +1721,8 @@ function Physics.PlayerCollisionUpdate()
 end
 
 function Physics.GroundCheck(px, py, pw, ph, ox, oy, ow, oh)
-	if py + 0.1 >= oy + oh then		-- adding a 0.1 margin of error in case math explodes
-		if px < ox + ow and px + pw > ox then
+	if py + 1 >= oy + oh then									-- adding a 1 margin of error to account for fall frame distance delta
+		if px < ox + ow - 0.3 and px + pw - 0.3 > ox then		-- adding a 0.3 so it doesn't get stuck on edges between vertical objects
 			if Player.ground < oy + oh then
 				Player.ground = oy + oh;
 				return true;
@@ -1557,11 +1733,35 @@ function Physics.GroundCheck(px, py, pw, ph, ox, oy, ow, oh)
 	return false;
 end
 
+function Physics.RoofCheck(px, py, pw, ph, ox, oy, ow, oh)
+	if py <= oy then											-- adding a 1 margin of error to account for jump frame distance delta
+		if px < ox + ow - 0.3 and px + pw - 0.6 > ox then		-- adding a 0.3 so it doesn't get stuck on edges between vertical objects, also 0.6 to allow jumping between two solids
+			--if Player.roof > oy then
+				Player.roof = min(Player.roof, oy);
+				Player.roof = min(Player.roof, Canvas.ceiling);
+				return true;
+			--end
+		end
+	end
+	return false;
+end
+
+function Physics.FrontCheck(px, py, pw, ph, ox, oy, ow, oh)
+	if py < oy + oh and py + ph > oy then
+		-- 1. Check colision with -1 offset so that it's ahead of intersection check (so the player doesn't land between gameobjects)
+		-- 2. Check at current character position so that we don't stick behind game objects when jumping
+		if px - 1 <= ox + ow and px >= ox + ow then
+			return true;
+		end
+	end
+
+	return false;
+end
+
 function Physics.PlayerCollided(px, py, pw, ph, ox, oy, ow, oh)
 	-- if we aren't sitting on the object
 	if Physics.groundCollided == false then
-		Player.isHeldInPlace = true;
-		--Game.GameObjects[k].actor:SetAlpha(0.5);
+		--Player.isHeldInPlace = true;
 	end
 end
 
@@ -1572,6 +1772,7 @@ function Player.Update()
 
 	if Player.isHeldInPlace == true then
 		Player.posX = Player.posX + (Game.speed / Game.SCENE_SYNC * 4);		-- why do I have to multiply by 4 ?
+		--Player.worldPosY = Player.worldPosY - 0.3;							-- forcing a faster fall if held in place so it slides down walls faster
 	else
 		if Player.posX > 22 then
 			Player.posX = Player.posX - (Game.speed / Game.SCENE_SYNC);
@@ -1579,11 +1780,13 @@ function Player.Update()
 	end
 
 	if Player.jumpHold == true and Player.jumpHeight < 14 and Player.canJump == true then
+		Player.grounded = false;
 		Player.yForce = -10;
 		Player.jumping = true;
 		Player.jumpHeight = Player.jumpHeight + 1;
 	end
    
+	--print (Player.worldPosY + Game.ObjectDefinitions["Player"].collider.h .. " " ..  Player.roof);
 	if Player.jumpHeight >= 14 or Player.jumpHold == false then
 		Player.canJump = false;
 		Player.jumpHold = false;
@@ -1591,6 +1794,16 @@ function Player.Update()
 		Player.jumping = false;
 		-- have the player start falling
 		Player.yForce = Player.yForce + 1;
+	end
+
+	-- we hit the roof --
+	if Player.worldPosY + Game.ObjectDefinitions["Player"].collider.h >= Player.roof then
+		Player.canJump = false;
+		Player.jumpHold = false;
+		Player.jumpHeight = 0;
+		Player.jumping = false;
+
+		Player.yForce = 3;
 	end
 
 	if Player.worldPosY - (Player.yForce / Player.yForceDiv) <= Player.ground and Player.canJump == false then
@@ -1607,6 +1820,7 @@ function Player.Update()
 		end
 		Player.falling = false;
 		Player.canJump = true;
+		Player.grounded = true;
 	end
 
 	-- if yForce > 0 means we're falling
@@ -1632,8 +1846,10 @@ function Player.Update()
 			end
 		else
 			if Player.isHeldInPlace == true then
-				if Player.currentAnimation ~= "Stand" then
-					Player.SetAnimation("Stand", 1);
+				if Player.grounded == true then
+					if Player.currentAnimation ~= "Stand" then
+						Player.SetAnimation("Stand", 1);
+					end
 				end
 			else
 				if Player.currentAnimation ~= "Run" then
@@ -1649,6 +1865,10 @@ end
 --------------------------------------
 
 function Game.Initialize()
+	-- Load Object definitions
+	-- Has to be done in a function at the start because some table values will reference functions
+	Game.CreateObjectDefinitions();
+
 	-- Create all UI --
 	UI.Initialize();
 
@@ -1666,10 +1886,13 @@ function Game.Initialize()
 
 	-- Create player input --
 	Game.CreatePlayerInputFrame();
-	Game.mainWindow:Show();
-	-- Debug init --
 
-	Canvas.DEBUG_CreateCaracterTrails();
+	-- Debug init --
+	if Game.devMode == true then
+		Game.mainWindow:Show();
+		Game.NewGame();
+		Canvas.DEBUG_CreateCaracterTrails();
+	end
 
 	Game.initialized = true;
 end
@@ -1688,10 +1911,14 @@ function Game.Update(self, elapsed)
 			Player.Update();
 			Canvas.UpdateEnvironment();
 			Physics.Update();
-			Canvas.DEBUG_UpdateCharacterTrails();
 			LevelGenerator.Update();
 			Sound.Update();
-			--Physics.DEBUG_UpdateColliderFrames()
+
+			if Game.devMode == true then
+				Canvas.DEBUG_UpdateCharacterTrails();
+				--Physics.DEBUG_UpdateColliderFrames()
+			end
+
 			Game.travelledDistance = Game.travelledDistance + (Game.speed / Game.SCENE_SYNC);
 
 			Game.time = Game.time + Game.UPDATE_INTERVAL;
