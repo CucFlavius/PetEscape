@@ -30,7 +30,8 @@
 Zee = Zee or {}
 Zee.DinoGame = Zee.DinoGame or {}
 Zee.DinoGame.Canvas = Zee.DinoGame.Canvas or {}
-Zee.DinoGame.Canvas.Environment = Zee.DinoGame.Canvas.Environment or {};
+Zee.DinoGame.Environment = Zee.DinoGame.Environment or {};
+Zee.DinoGame.Environment.Ground = Zee.DinoGame.Environment.Ground or {};
 Zee.DinoGame.Player = Zee.DinoGame.Player or {}
 Zee.DinoGame.Physics = Zee.DinoGame.Physics or {}
 Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
@@ -44,7 +45,8 @@ Zee.DinoGame.AI = Zee.DinoGame.AI or {}
 local Game = Zee.DinoGame;
 local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
-local Environment = Zee.DinoGame.Canvas.Environment;
+local Environment = Zee.DinoGame.Environment;
+local Ground = Zee.DinoGame.Environment.Ground;
 local Player = Zee.DinoGame.Player;
 local Physics = Zee.DinoGame.Physics;
 local LevelGenerator = Zee.DinoGame.LevelGenerator;
@@ -53,7 +55,7 @@ local Sound = Zee.DinoGame.Sound;
 local UI = Zee.DinoGame.UI;
 local FX = Zee.DinoGame.FX;
 local AI = Zee.DinoGame.AI;
-Canvas.Ground = {};
+Ground = {};
 
 --------------------------------------
 --				Variables			--
@@ -73,6 +75,7 @@ Player.grounded = true;
 Player.isHeldInPlace = false;
 Player.jumpHold = false;
 Player.jumpRelease = false;
+Player.jumpEnd = false;
 Player.worldPosY = 0;
 Player.ground = 0;
 Player.roof = 25;
@@ -110,14 +113,14 @@ Game.height = 300;									-- Window height, reference resolution (not actual re
 Game.aspectRatio = Game.width / Game.height;
 Canvas.defaultZoom = 1.5;
 Canvas.defaultPan = 0;
-Canvas.Ground.floorOffsetY = 99;
-Canvas.Ground.height = 15;
-Canvas.Ground.textureScale = 1.6;
-Canvas.Ground.lightRimIntensity = 0.3;
-Canvas.Ground.depthShadowIntensity = 1;
-Canvas.Ground.depthShadowScale = 1;
+Ground.floorOffsetY = 99;
+Ground.height = 15;
+Ground.textureScale = 1.6;
+Ground.lightRimIntensity = 0.3;
+Ground.shadowIntensity = 1;
+Ground.depthShadowScale = 1;
 Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
-Canvas.ceiling = 35;
+Canvas.ceiling = 50;
 Player.jumpKey = "W";
 Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
 Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
@@ -138,13 +141,10 @@ function Game.CreateObjectDefinitions()
 			id = 0,
 			scale = 1,
 			solid = false,
-			collider = 
-			{
-				x = 0,
-				y = 0,
-				w = 5,
-				h = 5
-			},
+			danger = 0,
+			collider = { x = 0, y = 0, w = 5, h = 5 },
+			offset = { x = 0, y = 0 },
+			ai = nil,
 		},
 
 		["Crate"] = 
@@ -152,13 +152,9 @@ function Game.CreateObjectDefinitions()
 			id = 2261922,
 			scale = 4,
 			solid = true,
-			collider = 
-			{
-				x = 0,
-				y = 0,
-				w = 5,
-				h = 5
-			},
+			danger = 0,
+			collider = { x = 0, y = 0, w = 5, h = 5 },
+			offset = { x = 0, y = 0 },
 			ai = nil,
 		},
 
@@ -167,29 +163,21 @@ function Game.CreateObjectDefinitions()
 			id = 1968701,
 			scale = 1.5,
 			solid = true,
-			collider =
-			{
-				x = 0,
-				y = 0,
-				w = 6,
-				h = 4
-			},
-			ai = { Initialize = AI.CannonInit ,Update = AI.CannonUpdate },
+			danger = 0,
+			collider = { x = 0, y = 0, w = 6, h = 4 },
+			offset = { x = 0, y = 0 },
+			ai = { Initialize = AI.CannonInit, Update = AI.CannonUpdate },
 		},
 
 		["Cannonball"] = 
 		{ 
-			id = 123366,
-			scale = 1,
+			id = 166129,
+			scale = 5,
 			solid = false,
-			collider = 
-			{
-				x = 0,
-				y = 0,
-				w = 2,
-				h = 2
-			},
-			ai = nil,
+			danger = 1,
+			collider = { x = 2, y = -1, w = 2, h = 2 },
+			offset = { x = 1, y = 0.5 },
+			ai = { Initialize = AI.ProjectileInit, Update = AI.ProjectileUpdate },
 		},
 	}
 end
@@ -204,7 +192,7 @@ Game.Puzzles =
 
 	["4Empty"] =
 	{
-		objectCount = 1,
+		objectCount = 0,
 		length = 4,
 	},
 
@@ -232,7 +220,7 @@ Game.Puzzles =
 			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
 			{ dName = "Crate", position = { x = 0, y = 1.27 * 4 } },
 		},
-		length = 6;
+		length = 7;
 	},
 
 	["CannonTest"] = 
@@ -244,7 +232,7 @@ Game.Puzzles =
 			{ dName = "Cannon", position = { x = 1.27, y = 0 } },
 			--{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
 		},
-		length = 8;
+		length = 3;
 	},
 
 	["1Crate"] = 
@@ -337,6 +325,23 @@ Game.FX.Symbols =
 	["Z"] = {},
 };
 
+Game.EnvironmentDefinitions =
+{
+	["Forest"] = 
+	{
+		Layer0 = { }, -- Foreground 0 : Closest things to the camera, that occlude the play area
+		Layer1 = { }, -- Foreground 1 : Extra detail that goes on top of the ground layer (stones, light shafts)
+		Layer2 = { }, -- Ground : Definitions for the ground textures
+		Layer3 = { }, -- Background 3 : 3D Models that are very near the ground, but behind it
+		Layer4 = { }, -- Fog 1 : Gradient - Fog layer
+		Layer5 = { }, -- Background 2 : Custom background detail ( like say, ocean ? )
+		Layer6 = { }, -- Background 1 : 2D layer for far away silhouettes
+		Layer7 = { }, -- Fog 2 : Gradient - Skybox Atmosphere
+		Layer8 = { }, -- Background 0 : Skybox color ( simple color plane )
+	},
+};
+
+
 --------------------------------------
 --		       Game State			--
 --------------------------------------
@@ -384,6 +389,7 @@ function Game.Restart()
 	Player.isHeldInPlace = false;
 	Player.jumpHold = false;
 	Player.jumpRelease = false;
+	Player.jumpEnd = false;
 	Player.worldPosY = 0;
 	Player.ground = 0;
 	Player.posX = 22;
@@ -472,13 +478,15 @@ function LevelGenerator.Update()
 end
 
 function LevelGenerator.SpawnPuzzle()
-	--local puzzles = { "1Empty", "4Empty", "1Crate", "4CratesLine", "4CratesTetris" };
-	local puzzles = {"RoofSlideTest"};
+	--local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
+	local puzzles = { "1Empty" };
 	local pick = math.floor(LevelGenerator.random() * table.getn(puzzles)) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
 	for k = 1, puzzle.objectCount, 1 do
-		LevelGenerator.SpawnObject(puzzle.objects[k].dName, puzzle.objects[k].position)
+		local position = puzzle.objects[k].position;
+		position.x = -10;
+		LevelGenerator.SpawnObject(puzzle.objects[k].dName, position)
 	end
 
 	LevelGenerator.puzzleLength = puzzle.length;
@@ -488,15 +496,17 @@ function LevelGenerator.SpawnObject(dName, position)
 	local goIndex = LevelGenerator.GetAvailableGameObject();
 	Game.GameObjects[goIndex].active = true;
 	local definitionName = Game.GameObjects[goIndex].defName;
+	local definition = Game.ObjectDefinitions[dName];
 	if dName ~= definitionName then
-		local definition = Game.ObjectDefinitions[dName];
 		Game.GameObjects[goIndex].defName = dName;
 		Game.GameObjects[goIndex].definition = definition;
 		Game.GameObjects[goIndex].actor:SetModelByFileID(definition.id);
 		Game.GameObjects[goIndex].actor:SetScale(definition.scale);
+		Game.GameObjects[goIndex].actor:SetRoll(rad(0));
 	end
-	Game.GameObjects[goIndex].position.x = -10 - position.x;
-	Game.GameObjects[goIndex].position.y = 0 + position.y;
+
+	Game.GameObjects[goIndex].position.x = position.x + definition.offset.x;
+	Game.GameObjects[goIndex].position.y = position.y + definition.offset.y;
 
 	if Game.GameObjects[goIndex].definition.ai ~= nil then
 		Game.GameObjects[goIndex].definition.ai.Initialize(Game.GameObjects[goIndex]);
@@ -557,6 +567,7 @@ end
 --------------------------------------
 --			       AI				--
 --------------------------------------
+
 function AI.CannonInit(gameObject)
 	gameObject.currentAnimation = "Emerge";
 	gameObject.ai = {};
@@ -569,15 +580,30 @@ end
 
 function AI.CannonUpdate(gameObject)
 	gameObject.ai.time = gameObject.ai.time + 1;
-	if gameObject.ai.time == 40 or gameObject.ai.time == 130 then
+	local fire1 = 40;
+	local fire2 = 130;
+	if gameObject.ai.time == fire1 or gameObject.ai.time == fire2 then
 		gameObject.currentAnimation = "SpellCastDirected";
 		gameObject.actor:SetAnimation(Zee.animIndex[gameObject.currentAnimation], 0, 1.2);
-		LevelGenerator.SpawnObject("Cannonball", { x = -3, y = gameObject.position.y -1});
+	end
+	if gameObject.ai.time == fire1 + 10 or gameObject.ai.time == fire2 + 10 then
+		LevelGenerator.SpawnObject("Cannonball", { x = gameObject.position.x, y = gameObject.position.y });
 	end
 end
 
+function AI.ProjectileInit(gameObject)
+	gameObject.ai = {};
+	gameObject.ai.time = 0;
+end
+
+function AI.ProjectileUpdate(gameObject)
+	gameObject.ai.time = gameObject.ai.time + 1;
+	x,y,z = gameObject.actor:GetPosition();
+	gameObject.position.x = gameObject.position.x + 0.1;
+end
+
 --------------------------------------
---		       Rendering			--
+--		       	Canvas				--
 --------------------------------------
 
 function Canvas.Create()
@@ -602,130 +628,7 @@ function Canvas.Create()
 	Canvas.frame:SetScale(Canvas.defaultZoom);
 
 	-- Create graphics frames --
-	Canvas.CreateGround();
-	Canvas.UpdateGround();
-	Canvas.CreateEnvironment();
-	Canvas.UpdateEnvironment();
 	Canvas.CreateMainScene();
-end
-
-function Canvas.CreateGround()
-    Canvas.Ground.floorFrames = {}
-	Canvas.Ground.floorEffectFrames = {}
-	-- Create the floor frames --
-	for k = 1, Canvas.Ground.height, 1 do
-		Canvas.Ground.floorFrames[k] = CreateFrame("Frame", "Canvas.Ground.floorFrame_" .. k, Canvas.frame);
-		Canvas.Ground.floorFrames[k]:SetWidth(Game.width);
-		Canvas.Ground.floorFrames[k]:SetHeight(1);
-		Canvas.Ground.floorFrames[k]:SetPoint("BOTTOM", 0, k - 1 + Canvas.Ground.floorOffsetY );
-		Canvas.Ground.floorFrames[k].texture = Canvas.Ground.floorFrames[k]:CreateTexture("Canvas.Ground.floorFrame_" .. k .. "_texture","BACKGROUND")
-		Canvas.Ground.floorFrames[k].texture:SetTexture(127784,"REPEAT", "REPEAT");
-		Canvas.Ground.floorFrames[k].texture:SetAllPoints(Canvas.Ground.floorFrames[k]);
-		Canvas.Ground.floorFrames[k]:SetFrameLevel(50);
-
-		Canvas.Ground.floorEffectFrames[k] = CreateFrame("Frame", "Canvas.Ground.floorEffectFrame_" .. k, Canvas.frame);
-		Canvas.Ground.floorEffectFrames[k]:SetWidth(Game.width);
-		Canvas.Ground.floorEffectFrames[k]:SetHeight(1);
-		Canvas.Ground.floorEffectFrames[k]:SetPoint("BOTTOM", 0, k - 1 + Canvas.Ground.floorOffsetY );
-		Canvas.Ground.floorEffectFrames[k].texture = Canvas.Ground.floorFrames[k]:CreateTexture("Canvas.Ground.floorEffectFrame_" .. k .. "_texture","BACKGROUND")
-		Canvas.Ground.floorEffectFrames[k].texture:SetTexture(3221839, "REPEAT", "REPEAT");
-		Canvas.Ground.floorEffectFrames[k].texture:SetAllPoints(Canvas.Ground.floorEffectFrames[k]);
-		Canvas.Ground.floorEffectFrames[k].texture:SetVertexColor(1,1,0.5, 0.5);
-		Canvas.Ground.floorEffectFrames[k]:SetFrameLevel(51);
-	end	
-
-	-- Create foreground floor frame, representing the side of the ground --
-	Canvas.Ground.fgFloorFrame = CreateFrame("Frame", "Canvas.Ground.fgFloorFrame", Canvas.frame);
-	Canvas.Ground.fgFloorFrame:SetWidth(Game.width);
-	Canvas.Ground.fgFloorFrame:SetHeight(Canvas.Ground.floorOffsetY );
-	Canvas.Ground.fgFloorFrame:SetPoint("BOTTOM", 0, 0);
-	Canvas.Ground.fgFloorFrame.texture = Canvas.Ground.fgFloorFrame:CreateTexture("Canvas.Ground.fgFloorFrame_texture","BACKGROUND")
-	Canvas.Ground.fgFloorFrame.texture:SetTexture(127784,"REPEAT", "REPEAT");
-	Canvas.Ground.fgFloorFrame.texture:SetAllPoints(Canvas.Ground.fgFloorFrame);
-	Canvas.Ground.fgFloorFrame:SetFrameLevel(50);
-
-	-- Create depth shadow frame 1 --
-	Canvas.Ground.depthShadowFrame = CreateFrame("Frame", "Canvas.Ground.depthShadowFrame", Canvas.frame);
-	Canvas.Ground.depthShadowFrame:SetWidth(Game.width);
-	Canvas.Ground.depthShadowFrame:SetHeight(Canvas.Ground.floorOffsetY * Canvas.Ground.depthShadowScale);
-	Canvas.Ground.depthShadowFrame:SetPoint("BOTTOM", 0, 0);
-	Canvas.Ground.depthShadowFrame.texture = Canvas.Ground.depthShadowFrame:CreateTexture("Canvas.Ground.depthShadowFrame_texture","BACKGROUND")
-	Canvas.Ground.depthShadowFrame.texture:SetTexture(131963,"CLAMP", "CLAMP");
-	Canvas.Ground.depthShadowFrame.texture:SetAllPoints(Canvas.Ground.depthShadowFrame);
-	Canvas.Ground.depthShadowFrame.texture:SetTexCoord(1, 0, 1, 0);
-	Canvas.Ground.depthShadowFrame:SetAlpha(Canvas.Ground.depthShadowIntensity);
-	Canvas.Ground.depthShadowFrame:SetFrameLevel(51);
-
-	-- Create depth shadow frame 2, for extra contrast --
-	Canvas.Ground.depthShadowFrame2 = CreateFrame("Frame", "Canvas.Ground.depthShadowFrame2", Canvas.frame);
-	Canvas.Ground.depthShadowFrame2:SetWidth(Game.width);
-	Canvas.Ground.depthShadowFrame2:SetHeight(Canvas.Ground.floorOffsetY * Canvas.Ground.depthShadowScale);
-	Canvas.Ground.depthShadowFrame2:SetPoint("BOTTOM", 0, 0);
-	Canvas.Ground.depthShadowFrame2.texture = Canvas.Ground.depthShadowFrame2:CreateTexture("Canvas.Ground.depthShadowFrame2_texture","BACKGROUND")
-	Canvas.Ground.depthShadowFrame2.texture:SetTexture(131963,"CLAMP", "CLAMP");
-	Canvas.Ground.depthShadowFrame2.texture:SetAllPoints(Canvas.Ground.depthShadowFrame2);
-	Canvas.Ground.depthShadowFrame2.texture:SetTexCoord(1, 0, 1, 0);
-	Canvas.Ground.depthShadowFrame2:SetAlpha(Canvas.Ground.depthShadowIntensity);
-	Canvas.Ground.depthShadowFrame2:SetFrameLevel(51);
-	Canvas.Ground.depthShadowFrame2.texture:SetBlendMode("BLEND");
-	local lightRimHeight = Canvas.Ground.height;
-
-	-- Create floor rim light top --
-	Canvas.Ground.floorRimLightFrame = CreateFrame("Frame", "Canvas.Ground.floorRimLightFrame", Canvas.frame);
-	Canvas.Ground.floorRimLightFrame:SetWidth(Game.width);
-	Canvas.Ground.floorRimLightFrame:SetHeight(lightRimHeight);
-	Canvas.Ground.floorRimLightFrame:SetPoint("BOTTOM", 0, Canvas.Ground.floorOffsetY );
-	Canvas.Ground.floorRimLightFrame.texture = Canvas.Ground.floorRimLightFrame:CreateTexture("Canvas.Ground.floorRimLightFrame_texture","BACKGROUND")
-	Canvas.Ground.floorRimLightFrame.texture:SetTexture(621343,"CLAMP", "CLAMP");
-	Canvas.Ground.floorRimLightFrame.texture:SetAllPoints(Canvas.Ground.floorRimLightFrame);
-	Canvas.Ground.floorRimLightFrame.texture:SetTexCoord(0, 1, 0, 1);
-	Canvas.Ground.floorRimLightFrame.texture:SetVertexColor(1,1,0.5, Canvas.Ground.lightRimIntensity);
-	Canvas.Ground.floorRimLightFrame.texture:SetBlendMode("ADD");
-	Canvas.Ground.floorRimLightFrame:SetFrameLevel(51);
-
-	-- Create floor rim light side --
-	Canvas.Ground.floorRimLightFrame2 = CreateFrame("Frame", "Canvas.Ground.floorRimLightFrame2", Canvas.frame);
-	Canvas.Ground.floorRimLightFrame2:SetWidth(Game.width);
-	Canvas.Ground.floorRimLightFrame2:SetHeight(lightRimHeight);
-	Canvas.Ground.floorRimLightFrame2:SetPoint("BOTTOM", 0, Canvas.Ground.floorOffsetY  - lightRimHeight);
-	Canvas.Ground.floorRimLightFrame2.texture = Canvas.Ground.floorRimLightFrame2:CreateTexture("Canvas.Ground.floorRimLightFrame2_texture","BACKGROUND")
-	Canvas.Ground.floorRimLightFrame2.texture:SetTexture(621343,"CLAMP", "CLAMP");
-	Canvas.Ground.floorRimLightFrame2.texture:SetAllPoints(Canvas.Ground.floorRimLightFrame2);
-	Canvas.Ground.floorRimLightFrame2.texture:SetTexCoord(1, 0, 1, 0);
-	Canvas.Ground.floorRimLightFrame2.texture:SetVertexColor(1,1,0.5, Canvas.Ground.lightRimIntensity);
-	Canvas.Ground.floorRimLightFrame2.texture:SetBlendMode("ADD");
-	Canvas.Ground.floorRimLightFrame2:SetFrameLevel(51);
-
-	-- Create floor brightness --
-	Canvas.Ground.floorBrightnessFrame = CreateFrame("Frame", "Canvas.Ground.floorBrightnessFrame", Canvas.frame);
-	Canvas.Ground.floorBrightnessFrame:SetWidth(Game.width);
-	Canvas.Ground.floorBrightnessFrame:SetHeight(Canvas.Ground.floorOffsetY + Canvas.Ground.height);
-	Canvas.Ground.floorBrightnessFrame:SetPoint("BOTTOM", 0, 0);
-	Canvas.Ground.floorBrightnessFrame.texture = Canvas.Ground.floorBrightnessFrame:CreateTexture("Canvas.Ground.floorBrightnessFrame_texture","BACKGROUND")
-	Canvas.Ground.floorBrightnessFrame.texture:SetColorTexture(1,1,0.5, 0.05);
-	Canvas.Ground.floorBrightnessFrame.texture:SetAllPoints(Canvas.Ground.floorBrightnessFrame);
-	Canvas.Ground.floorBrightnessFrame.texture:SetBlendMode("ADD");
-	Canvas.Ground.floorBrightnessFrame:SetFrameLevel(51);
-end
-
-function Canvas.UpdateGround()
-	local offset = (Game.time * 0.25 * Game.speed);
-	local firstScale = 1;
-	local firstScaleY = 1;
-	local kOfs = 15;
-	for k = 1, Canvas.Ground.height, 1 do
-		local diff = Canvas.Ground.height * 3;
-		local K = (diff / ((diff - k) + kOfs)) * 4;
-		local scale = (K * 0.5) * Canvas.Ground.textureScale;
-		Canvas.Ground.floorFrames[k].texture:SetTexCoord(offset - (scale / 3), offset + scale - (scale / 3), scale, scale - ((1 / K) / 8))
-		Canvas.Ground.floorEffectFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8))
-		if k == 1 then
-			firstScale = scale;
-			firstScaleY = ((1 / K) / 8);
-		end
-	end
-
-	Canvas.Ground.fgFloorFrame.texture:SetTexCoord(offset- (firstScale / 3), offset + firstScale - (firstScale / 3), firstScale - firstScaleY, 2)
 end
 
 function Canvas.CreateMainScene()
@@ -744,7 +647,20 @@ function Canvas.CreateMainScene()
     Canvas.character:SetYaw(math.rad(-90));
 	Canvas.character:SetPosition(0, 21, 0);
 	Canvas.character:SetPaused(true);
-
+	Game.PlayerObject = {}
+	Game.PlayerObject.actor = Canvas.character;
+	Game.PlayerObject.definition = Game.ObjectDefinitions["Player"];
+	--Canvas.character:SetSpellVisualKit(144152);
+	--[[
+	Canvas.mainScene:SetLightVisible(false);
+	local lightTest = Canvas.mainScene:CreateActor("lightTest");
+	lightTest:SetModelByFileID(3257513);
+	--lightTest:SetYaw(math.rad(-90));
+	--lightTest:SetPosition(0, 21, 2);
+	lightTest:SetPosition(0, 0, 1);
+	lightTest:SetScale(10);
+	lightTest:SetParticleOverrideScale(0.1);
+	--]]
 	-- Create character blob shadow --
 	Canvas.dinoShadowBlobFrame = CreateFrame("Frame", "Canvas.dinoShadowBlobFrame", Canvas.frame);
     Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX, Canvas.dinoShadowBlobY);
@@ -760,6 +676,7 @@ end
 --------------------------------------
 --		  	     UI					--
 --------------------------------------
+
 function UI.Initialize()
 	-- Create main window --
 	Game.mainWindow = Win.CreateWindow(0, 0, Game.width, Game.height, UIParent, "CENTER", "CENTER", true, "Pet Escape");
@@ -1165,9 +1082,7 @@ end
 --------------------------------------
 --              Sound               --
 --------------------------------------
-local pos = 0;
-local willPlay;
-local soundHandle = 0;
+
 function Sound.Update()
 	--[[
 	pos = pos + 1;
@@ -1184,6 +1099,7 @@ end
 --------------------------------------
 --             Cutscene             --
 --------------------------------------
+
 function Cutscene.Play(name)
 	Cutscene.current = name;
 	Cutscene.isPlaying = true;
@@ -1367,6 +1283,7 @@ end
 --------------------------------------
 --			    Effects				--
 --------------------------------------
+
 function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
 	local sInfo = Game.FX.Symbols[symbol];
 	local s = {};
@@ -1423,7 +1340,7 @@ function Canvas.DEBUG_CreateCaracterTrails()
 		Canvas.DEBUG_Trails[k].frame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Canvas.DEBUG_Trails[k].x, Canvas.DEBUG_Trails[k].y);
 		Canvas.DEBUG_Trails[k].frame:SetSize(size, size);
 		Canvas.DEBUG_Trails[k].frame:SetFrameLevel(100);
-		Canvas.DEBUG_Trails[k].frame.texture = Canvas.DEBUG_Trails[k].frame:CreateTexture("Canvas.Ground.floorBrightnessFrame_texture","BACKGROUND")
+		Canvas.DEBUG_Trails[k].frame.texture = Canvas.DEBUG_Trails[k].frame:CreateTexture("Ground.floorBrightnessFrame_texture","BACKGROUND")
 		Canvas.DEBUG_Trails[k].frame.texture:SetColorTexture(0.9,0.9,1, 0.8);
 		Canvas.DEBUG_Trails[k].frame.texture:SetAllPoints(Canvas.DEBUG_Trails[k].frame);
 		Canvas.DEBUG_Trails[k].frame:Show();
@@ -1481,6 +1398,7 @@ function Player.KeyPress(self, key)
 
 		if Player.jumpHold == false and Player.canJump == true then
 			Player.jumpHold = true;
+			Player.jumpEnd = false;
 		end
 
 		Player.inputFrame:SetPropagateKeyboardInput(false);
@@ -1515,6 +1433,7 @@ end
 function Player.KeyRelease(self, key)
     if key == Player.jumpKey then
 		Player.jumpHold = false;
+		Player.jumpEnd = true;
     end
 	self:SetPropagateKeyboardInput(true);
 end
@@ -1535,7 +1454,8 @@ function Player.UpdateBlobShadow()
 	local scale = (Player.worldPosY / 10 * 0.8);
 	Canvas.dinoShadowBlobFrame:SetAlpha(0.6 * (1 - scale));
 	Canvas.dinoShadowBlobFrame:SetSize(60 + (60 * scale), 60 + (60 * scale));
-	Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX - (30 * scale) - 5, Canvas.dinoShadowBlobY - (25 * scale));
+	local screenPos =  ((1 - ((Player.posX / 12) - 2)) + 1) * 80 - (Player.posX / 5) - 10;	-- TODO : format brain, or just calculate modelscene->screen position for real next time
+	Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", screenPos, Canvas.dinoShadowBlobY - (25 * scale));
 end
 
 function Player.CalculateJumpVelocity()
@@ -1571,8 +1491,10 @@ end
 --			Environment				--
 --------------------------------------
 
-function Canvas.CreateEnvironment()
+function Environment.Create()
+	Environment.CreateLayer2_Ground();
 
+	--[[
 	-- Create background color --
 	Environment.BGColor = CreateFrame("Frame", "Environment.BGColor", Canvas.frame);
 	Environment.BGColor:SetWidth(Game.width);
@@ -1596,7 +1518,7 @@ function Canvas.CreateEnvironment()
 	Environment.BGScene0:SetCameraFarClip(1000);
 
 	Environment.actors0 = {};
-	for k = 1, 100, 1 do
+	for k = 1, 10, 1 do
 		Environment.actors0[k] = {};
 		Environment.actors0[k].frame = Environment.BGScene0:CreateActor("BGScene0.actor_" .. k);
 		Environment.actors0[k].frame:SetModelByFileID(2323113);
@@ -1621,7 +1543,7 @@ function Canvas.CreateEnvironment()
 	Environment.BGScene1:SetCameraFarClip(1000);
 
 	Environment.actors1 = {};
-	for k = 1, 20, 1 do
+	for k = 1, 5, 1 do
 		Environment.actors1[k] = {};
 		Environment.actors1[k].frame = Environment.BGScene1:CreateActor("BGScene1.actor_" .. k);
 		Environment.actors1[k].frame:SetModelByFileID(2323113);
@@ -1636,7 +1558,7 @@ function Canvas.CreateEnvironment()
 	Environment.VFogNear = CreateFrame("Frame", "Environment.VFogNear", Canvas.frame);
 	Environment.VFogNear:SetWidth(Game.width);
 	Environment.VFogNear:SetHeight(Game.height / 2);
-	Environment.VFogNear:SetPoint("BOTTOM", 0, Canvas.Ground.floorOffsetY);
+	Environment.VFogNear:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
 	Environment.VFogNear.texture = Environment.VFogNear:CreateTexture("Environment.VFogNear_texture","BACKGROUND")
 	Environment.VFogNear.texture:SetTexture(621343, "CLAMP", "CLAMP");
 	Environment.VFogNear.texture:SetAllPoints(Environment.VFogNear);
@@ -1648,7 +1570,7 @@ function Canvas.CreateEnvironment()
 	Environment.VFogFar = CreateFrame("Frame", "Environment.VFogFar", Canvas.frame);
 	Environment.VFogFar:SetWidth(Game.width);
 	Environment.VFogFar:SetHeight(Game.height / 2);
-	Environment.VFogFar:SetPoint("BOTTOM", 0, Canvas.Ground.floorOffsetY);
+	Environment.VFogFar:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
 	Environment.VFogFar.texture = Environment.VFogFar:CreateTexture("Environment.VFogFar_texture","BACKGROUND")
 	Environment.VFogFar.texture:SetTexture(621343, "CLAMP", "CLAMP");
 	Environment.VFogFar.texture:SetAllPoints(Environment.VFogFar);
@@ -1656,10 +1578,13 @@ function Canvas.CreateEnvironment()
 	Environment.VFogFar.texture:SetVertexColor(13/256, 47/256, 48/256, 1);
 	--Environment.VFogFar.texture:SetBlendMode("BLEND");
 	Environment.VFogFar:SetFrameLevel(8);
+	--]]
 end
 
-function Canvas.UpdateEnvironment()
-	for k = 1, 100, 1 do
+function Environment.Update()
+	Environment.UpdateLayer2_Ground();
+	--[[
+	for k = 1, 10, 1 do
 		Environment.actors0[k].positionY = Environment.actors0[k].positionY + (Game.speed / 50);
 		Environment.actors0[k].frame:SetPosition(Environment.actors0[k].positionX, Environment.actors0[k].positionY, Environment.actors0[k].positionZ);
 		if Environment.actors0[k].positionY >= 90 then
@@ -1667,15 +1592,81 @@ function Canvas.UpdateEnvironment()
 		end
 	end
 
-	for k = 1, 20, 1 do
+	for k = 1, 5, 1 do
 		Environment.actors1[k].positionY = Environment.actors1[k].positionY + (Game.speed / 50);
 		Environment.actors1[k].frame:SetPosition(Environment.actors1[k].positionX, Environment.actors1[k].positionY, Environment.actors1[k].positionZ);
 		if Environment.actors1[k].positionY >= 50 then
 			Environment.actors1[k].positionY = -50;
 		end
 	end
+	--]]
+end
+
+function Environment.CreateLayer2_Ground()
+    Ground.floorFrames = {}
+	Ground.floorEffectFrames = {}
+	-- Create the floor frames --
+	for k = 1, Ground.height, 1 do
+		Ground.floorFrames[k] = Environment.CreateFrame("Ground.floorFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 50, 127784, "REPEAT");
+		Ground.floorEffectFrames[k] = Environment.CreateFrame("Ground.floorEffectFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 51, 3221839, "REPEAT", nil, {1,1,0.5,0.5});
+	end	
+
+	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 50, 127784, "REPEAT")
+	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * Ground.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, Ground.shadowIntensity);
+	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * Ground.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, Ground.shadowIntensity, "BLEND");
+	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, Ground.height, "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, {1,1,0.5, Ground.lightRimIntensity}, Ground.shadowIntensity, "ADD");
+	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - Ground.height, Game.width, Ground.height, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5, Ground.lightRimIntensity}, Ground.shadowIntensity, "ADD");
+	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + Ground.height, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, Ground.shadowIntensity, "ADD");
 
 end
+
+function Environment.CreateFrame(name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode)
+	if wrap == nil then wrap = "REPEAT" end
+
+	local f = CreateFrame("Frame", name, Canvas.frame);
+	f:SetSize(w, h);
+	f:SetPoint(point, x, y);
+	f.texture = f:CreateTexture(name .. ".texture","BACKGROUND");
+	f.texture:SetTexture(textureID, wrap, wrap);
+	f.texture:SetAllPoints(f);
+	if texCoord ~= nil then 
+		f.texture:SetTexCoord(texCoord[1], texCoord[2], texCoord[3], texCoord[4]);
+	end
+	if color ~= nil then
+		f.texture:SetVertexColor(color[1], color[2], color[3], color[4]);
+	end
+	if blendMode ~= nil then
+		f.texture:SetBlendMode(blendMode);
+	end
+	if alpha ~= nil then
+		f:SetAlpha(alpha);
+	end
+	f:SetFrameLevel(frameLevel);
+	return f;
+end
+
+function Environment.UpdateLayer2_Ground()
+	-- Top frames --
+	local offset = (Game.time * 0.25 * Game.speed);
+	local firstScale = 1;
+	local firstScaleY = 1;
+	local kOfs = 15;
+	for k = 1, Ground.height, 1 do
+		local diff = Ground.height * 3;
+		local K = (diff / ((diff - k) + kOfs)) * 4;
+		local scale = (K * 0.5) * Ground.textureScale;
+		Ground.floorFrames[k].texture:SetTexCoord(offset - (scale / 3), offset + scale - (scale / 3), scale, scale - ((1 / K) / 8))
+		Ground.floorEffectFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8))
+		if k == 1 then
+			firstScale = scale;
+			firstScaleY = ((1 / K) / 8);
+		end
+	end
+
+	-- Side frame --
+	Ground.fgFloorFrame.texture:SetTexCoord(offset- (firstScale / 3), offset + firstScale - (firstScale / 3), firstScale - firstScaleY, 2)
+end
+
 
 --------------------------------------
 --              Physics             --
@@ -1686,21 +1677,25 @@ function Physics.Update()
 end
 
 function Physics.PlayerCollisionUpdate()
-	-- all colliders are AABB
 	local playerCol = Game.ObjectDefinitions["Player"].collider;
 	local px, py, pz = Canvas.character:GetPosition();
+
+	-- Reset collision state variables --
 	Player.ground = 0;
 	Player.roof = Canvas.ceiling;
 	Player.isHeldInPlace = false;
+
+	-- Compare player collider against all colliders in scene --
 	for k = 1, LevelGenerator.totalObjects, 1 do
 		if Game.GameObjects[k].active == true then
 			local definition = Game.GameObjects[k].definition;
+			local ox, oy, oz = Game.GameObjects[k].actor:GetPosition();
 			local objCol = definition.collider;
 			local oScale = definition.scale;
-			local ox, oy, oz = Game.GameObjects[k].actor:GetPosition();
 			oy = oy * oScale;
 			oz = oz * oScale;
 			
+			-- Check for solids that can block player movement --
 			if definition.solid == true then
 				Physics.groundCollided = Physics.GroundCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
 				Physics.roofCollided = Physics.RoofCheck(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
@@ -1710,12 +1705,13 @@ function Physics.PlayerCollisionUpdate()
 				end
 			end
 
-			if playerCol.x + py < objCol.x + oy + objCol.w and playerCol.x + py + playerCol.w > objCol.x + oy and playerCol.y + pz < objCol.y + oz + objCol.h and playerCol.y + pz + playerCol.h > objCol.y + oz then
-				-- collision detected!
-				Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h);
-			else
-				Game.GameObjects[k].actor:SetAlpha(1);
+			-- Check for intersections with non solids --
+			if Physics.CheckCollision(Game.PlayerObject, Game.GameObjects[k]) == true then
+				Physics.PlayerCollided(Game.GameObjects[k]);
 			end
+			--if playerCol.x + py < objCol.x + oy + objCol.w and playerCol.x + py + playerCol.w > objCol.x + oy and playerCol.y + pz < objCol.y + oz + objCol.h and playerCol.y + pz + playerCol.h > objCol.y + oz then
+			--	Physics.PlayerCollided(playerCol.x + py, playerCol.y + pz, playerCol.w, playerCol.h, objCol.x + oy, objCol.y + oz, objCol.w, objCol.h, Game.GameObjects[k]);
+			--end
 		end
 	end
 end
@@ -1758,10 +1754,36 @@ function Physics.FrontCheck(px, py, pw, ph, ox, oy, ow, oh)
 	return false;
 end
 
-function Physics.PlayerCollided(px, py, pw, ph, ox, oy, ow, oh)
-	-- if we aren't sitting on the object
-	if Physics.groundCollided == false then
-		--Player.isHeldInPlace = true;
+function Physics.PlayerCollided(gameObject)
+	-- Danger 0 : Can be in contact with object anywhere
+	if gameObject.definition.danger == 0 then
+
+	-- Danger 1 : Cant' touch object at all
+	elseif gameObject.definition.danger == 1 then
+		Game.Over(true);
+	-- Danger 2 : Can only touch object from the top
+	elseif gameObject.definition.danger == 2 then
+
+	end
+end
+
+function Physics.CheckCollision(objectA, objectB)
+	local colliderA = objectA.definition.collider;
+	local colliderB = objectB.definition.collider;
+	local px, py, pz = objectA.actor:GetPosition();
+	local ox, oy, oz = objectB.actor:GetPosition();
+	local pScale = objectA.definition.scale;
+	local oScale = objectB.definition.scale;
+	py = py * pScale;
+	pz = pz * pScale;
+	oy = oy * oScale;
+	oz = oz * oScale;
+
+	if 	colliderA.x + py < colliderB.x + oy + colliderB.w and
+		colliderA.x + py + colliderA.w > colliderB.x + oy and
+		colliderA.y + pz < colliderB.y + oz + colliderB.h and
+		colliderA.y + pz + colliderA.h > colliderB.y + oz then
+		return true;
 	end
 end
 
@@ -1779,17 +1801,22 @@ function Player.Update()
 		end
 	end
 
-	if Player.jumpHold == true and Player.jumpHeight < 14 and Player.canJump == true then
+	if Player.jumpHold == true and Player.jumpEnd == false and Player.jumpHeight < 14 and Player.canJump == true then
 		Player.grounded = false;
 		Player.yForce = -10;
 		Player.jumping = true;
 		Player.jumpHeight = Player.jumpHeight + 1;
 	end
-   
+
+	--if Player.jumpHold == true and Player.grounded == true then
+	--	Game.speed = 4;
+	--end
+
 	--print (Player.worldPosY + Game.ObjectDefinitions["Player"].collider.h .. " " ..  Player.roof);
-	if Player.jumpHeight >= 14 or Player.jumpHold == false then
+	if Player.jumpHeight >= 14 or Player.jumpHold == false or Player.jumpEnd == true then
 		Player.canJump = false;
-		Player.jumpHold = false;
+		--Player.jumpHold = false;
+		Player.jumpEnd = true;
 		Player.jumpHeight = 0;
 		Player.jumping = false;
 		-- have the player start falling
@@ -1799,7 +1826,8 @@ function Player.Update()
 	-- we hit the roof --
 	if Player.worldPosY + Game.ObjectDefinitions["Player"].collider.h >= Player.roof then
 		Player.canJump = false;
-		Player.jumpHold = false;
+		Player.jumpEnd = true;
+		--Player.jumpHold = false;
 		Player.jumpHeight = 0;
 		Player.jumping = false;
 
@@ -1875,6 +1903,10 @@ function Game.Initialize()
 	-- Create canvas --
 	Canvas.Create();
 
+	-- Create environment --
+	Environment.Create();
+	Environment.Update();
+
 	-- Initialize Level Generator --
 	LevelGenerator.Initialize();
 
@@ -1900,6 +1932,7 @@ end
 --------------------------------------
 --			Update Loop				--
 --------------------------------------
+
 function Game.Update(self, elapsed)
 	if Game.initialized == false then return end
 	Game.realTime = Game.realTime + Game.UPDATE_INTERVAL;
@@ -1907,9 +1940,8 @@ function Game.Update(self, elapsed)
 		Game.timeSinceLastUpdate = Game.timeSinceLastUpdate + elapsed; 	
 		while (Game.timeSinceLastUpdate > Game.UPDATE_INTERVAL) do
 			Game.debugStep = false;
-			Canvas.UpdateGround();
 			Player.Update();
-			Canvas.UpdateEnvironment();
+			Environment.Update();
 			Physics.Update();
 			LevelGenerator.Update();
 			Sound.Update();
