@@ -22,7 +22,8 @@
 -- TODO : Delete these
 -- Interface/Common/CommonIcons.png
 -- k_pagetext.ttf
-
+-- world\expansion02\doodads\coldarra\coldarracloud_mask.blp 194342
+-- creature\hunterkillership\alphamask_verticalgradient.blp 2903846
 
 --------------------------------------
 --				Classes 			--
@@ -114,11 +115,6 @@ Game.aspectRatio = Game.width / Game.height;
 Canvas.defaultZoom = 1.5;
 Canvas.defaultPan = 0;
 Ground.floorOffsetY = 99;
-Ground.height = 15;
-Ground.textureScale = 1.6;
-Ground.lightRimIntensity = 0.3;
-Ground.shadowIntensity = 1;
-Ground.depthShadowScale = 1;
 Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
 Canvas.ceiling = 50;
 Player.jumpKey = "W";
@@ -129,6 +125,7 @@ Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character
 Player.deathZone = 31;
 Game.DEBUG_TrailCount = 40;
 LevelGenerator.objectPoolSize = 10;
+Environment.Initial = "TestArea";
 
 --------------------------------------
 --			     Data				--
@@ -325,22 +322,184 @@ Game.FX.Symbols =
 	["Z"] = {},
 };
 
-Game.EnvironmentDefinitions =
+Game.Environment.Constants = 
 {
-	["Forest"] = 
-	{
-		Layer0 = { }, -- Foreground 0 : Closest things to the camera, that occlude the play area
-		Layer1 = { }, -- Foreground 1 : Extra detail that goes on top of the ground layer (stones, light shafts)
-		Layer2 = { }, -- Ground : Definitions for the ground textures
-		Layer3 = { }, -- Background 3 : 3D Models that are very near the ground, but behind it
-		Layer4 = { }, -- Fog 1 : Gradient - Fog layer
-		Layer5 = { }, -- Background 2 : Custom background detail ( like say, ocean ? )
-		Layer6 = { }, -- Background 1 : 2D layer for far away silhouettes
-		Layer7 = { }, -- Fog 2 : Gradient - Skybox Atmosphere
-		Layer8 = { }, -- Background 0 : Skybox color ( simple color plane )
-	},
+	layer7SkyGradientID = 2903846,--621343,
+	layer6SpeedAdjust = 0.1,
+	layer6MaxSprites = 50,
+	layer4NearFogGradientID = 2903846;
+	layer3MaxActors = 50,
 };
 
+Game.EnvironmentDefinitions =
+{
+	["TestArea"] = 
+	{
+		Layer0 = { },
+		Layer1 = { },
+		Layer2 = { 
+			depth = 15,
+			topTexID = 188523,
+			textureScale = 2,
+			sideTexID = 188523,
+			topHighlightTexID = 3221839,
+			topHighlightColor = {120/256, 120/256, 180/256},
+			depthShadowIntensity = 1,
+			lightRimColor = {1,1,0.5,0.3},
+			depthShadowScale = 1,
+		},
+		Layer3 = { 
+			camPos = {-50, -5, 5},						-- Camera position in 3D space
+			fogColor = {0.1, 0.1, 0.1},
+			fogFar = 50,
+			fogNear = 10,
+			count = 50,
+			fDefs = {
+				[1] = {
+					fileID = 166046,
+					x = { -8, 0 },
+					y = { -10, 10 },
+					z = { 0.5, 2 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 5 }
+				}
+			},
+		},
+		Layer4 = { 
+			color = {120/256, 120/256, 180/256},
+			alpha = 0.2,
+			height = Game.height / 2,
+			texCoord = {0, 1, 0, 1},
+		},
+		Layer5 = { },
+		Layer6 = {
+			count = 50,		-- How many to spawn ( density )
+			fDefs = {
+				[1] = { 
+					fileID = 188524,
+					x = { -300, 400 },
+					y = { -200, 100 },
+					w = { 100, 150 },
+					h = { 100, 100 },
+					speed = { 0.8, 1 },
+					color = { {32/256, 39/256, 23/256}, {32/256, 39/256, 23/256} },
+					alpha = 1,
+					proportional = true,
+				},
+			}
+		 },
+		 
+		Layer7 = { 
+			color = {120/256, 120/256, 180/256},
+			alpha = 1,
+			height = Game.height / 2,
+			texCoord = {0, 1, 0, 1},
+		},
+		Layer8 = { 
+			color = {0.2, 0.2, 0.2}
+		}
+	},
+
+	["Forest"] = 
+	{
+		-- Foreground 0 : Closest things to the camera, that occlude the play area
+		Layer0 = { },
+
+		-- Foreground 1 : Extra detail that goes on top of the ground layer (stones, light shafts)
+		Layer1 = { },
+
+		-- Ground : Definitions for the ground textures
+		Layer2 = { 
+			depth = 15,							-- Ground depth in pixel frame count (this should probably remain constant, so we don't have to blend between them)
+			topTexID = 127784,					-- File ID of the texture that is displayed on the top side of the ground where the character sits
+			sideTexID = 127784,					-- File ID of the texture that is displayed on the side of the ground, facing the screen
+			textureScale = 1.6,					-- The scale of the ground texture, both top and side
+			topHighlightTexID = 3221839,		-- File ID of the texture that is overlayed over the top of the ground as an additive effect (simulating light/shadow spots)
+			topHighlightColor = {1,1,0.5,0.5},	-- Color of the texture that is overlayed on top of the ground
+			depthShadowIntensity = 1,			-- Intensity of the shadow that is drawn on the side of the ground
+			depthShadowScale = 1,				-- Scale of the depth shadow
+			lightRimColor = {1,1,0.5,0.3},		-- Intensity of the thin outline that is drawn at the intersection of the side and the top of the ground, alpha value is used for intensity
+		},
+
+		-- Background 3 : 3D Models that are very near the ground, but behind it
+		Layer3 = { 
+			camPos = {-50, -5, 5},						-- Camera position in 3D space
+			fogColor = {0.1, 0.1, 0.1},
+			fogFar = 50,
+			fogNear = 10,
+			count = 40,
+			fDefs = {
+				[1] = {
+					fileID = 2323113,
+					x = { -40, 0 },
+					y = { -50, 50 },
+					z = { 0, 3 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1 }
+				}
+			},
+		},
+
+		-- Fog 1 : Gradient - Fog layer
+		Layer4 = { 
+			color = {13/256, 47/256, 48/256},
+			alpha = 1,
+			height = Game.height / 2,
+			texCoord = {0, 1, 0, 1},
+		},
+
+		-- Background 2 : Custom background detail ( like say, ocean ? )
+		Layer5 = { },
+
+		-- Background 1 : 2D layer for far away silhouettes
+		Layer6 = {
+			count = 50,		-- How many to spawn ( density )
+			fDefs = {
+				[1] = { 
+					fileID = 1043765,
+					x = { -300, 400 },
+					y = { -200, 100 },
+					w = { 100, 150 },
+					h = { 100, 100 },
+					speed = { 0.8, 1 },
+					color = { {32/256, 39/256, 23/256}, {32/256, 39/256, 23/256} },
+					alpha = 1,
+					proportional = true,
+				},
+				--[[
+				[2] = { 
+					fileID = 1659425,
+					x = { -300, 400 },
+					y = { -100, 100 },
+					w = { 50, 100 },
+					h = { 200, 200 },
+					speed = { 0.8, 1 },
+					color = { {32/256, 39/256, 23/256}, {32/256, 39/256, 23/256} },
+					alpha = 1,
+					proportional = false,
+				},
+				--]]
+			}
+		 },
+		 
+		-- Fog 2 : Gradient - Skybox Atmosphere
+		Layer7 = { 
+			color = {13/256, 47/256, 48/256},
+			alpha = 1,
+			height = Game.height / 2,
+			texCoord = {0, 1, 0, 1},
+		},
+		
+		-- Background 0 : Skybox color ( simple color plane )
+		Layer8 = { 
+			color = {114/256, 119/256, 61/256} 	-- Color of the sky
+		},
+	},
+};
 
 --------------------------------------
 --		       Game State			--
@@ -480,7 +639,7 @@ end
 function LevelGenerator.SpawnPuzzle()
 	--local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
 	local puzzles = { "1Empty" };
-	local pick = math.floor(LevelGenerator.random() * table.getn(puzzles)) + 1;
+	local pick = math.floor(Game.Random() * #puzzles) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
 	for k = 1, puzzle.objectCount, 1 do
@@ -555,13 +714,20 @@ end
 local A1, A2 = 727595, 798405  -- 5^17=D20*A1+A2
 local D20, D40 = 1048576, 1099511627776  -- 2^20, 2^40
 local X1, X2 = 0, 1
-function LevelGenerator.random()
+function Game.Random()
+	return math.random();
+	--[[
     local U = X2*A2
     local V = (X1*A2 + X2*A1) % D20
     V = (V*D20 + U) % D40
     X1 = math.floor(V/D20)
     X2 = V - X1*D20
     return V/D40
+	--]]
+end
+
+function Game.Lerp(a, b, t)
+	 return a * (1-t) + b * t
 end
 
 --------------------------------------
@@ -650,17 +816,7 @@ function Canvas.CreateMainScene()
 	Game.PlayerObject = {}
 	Game.PlayerObject.actor = Canvas.character;
 	Game.PlayerObject.definition = Game.ObjectDefinitions["Player"];
-	--Canvas.character:SetSpellVisualKit(144152);
-	--[[
-	Canvas.mainScene:SetLightVisible(false);
-	local lightTest = Canvas.mainScene:CreateActor("lightTest");
-	lightTest:SetModelByFileID(3257513);
-	--lightTest:SetYaw(math.rad(-90));
-	--lightTest:SetPosition(0, 21, 2);
-	lightTest:SetPosition(0, 0, 1);
-	lightTest:SetScale(10);
-	lightTest:SetParticleOverrideScale(0.1);
-	--]]
+
 	-- Create character blob shadow --
 	Canvas.dinoShadowBlobFrame = CreateFrame("Frame", "Canvas.dinoShadowBlobFrame", Canvas.frame);
     Canvas.dinoShadowBlobFrame:SetPoint("BOTTOMLEFT", Canvas.frame, "BOTTOMLEFT", Player.screenX, Canvas.dinoShadowBlobY);
@@ -873,8 +1029,8 @@ function UI.AnimateMainMenu()
 	local speed = 200;
 	local ofs = 50;
 	local ofs2 = 1.5;
-	for b = 1, getn(UI.MainMenu.buttons), 1 do
-		for i = 1, getn(UI.MainMenu.buttons[b].text), 1 do
+	for b = 1, #UI.MainMenu.buttons, 1 do
+		for i = 1, #UI.MainMenu.buttons[b].text, 1 do
 			x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
 			UI.MainMenu.buttons[b].text[i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
 			x, y = FX.RotatePoint(0, 0, Game.realTime * speed + (i * ofs));
@@ -935,92 +1091,32 @@ function UI.CreateLogo()
 	UI.Logo.bgScene:SetCameraFieldOfView(math.rad(90));
 	UI.Logo.bgScene:Hide();
 
-	-- Left side npc
-	UI.Logo.assets[1] = UI.Logo.scene:CreateActor("UI.Logo.assets[1]");
-    UI.Logo.assets[1]:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
-    UI.Logo.assets[1]:SetYaw(math.rad(180 - 30));
-	UI.Logo.assets[1]:SetPosition(0, 0, 0);
-	UI.Logo.assets[1]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[1]:SetPaused(true);
+	UI.Logo.assets[1] = UI.AddLogoAsset("UI.Logo.LeftSideNPC", UI.Logo.scene, 90029, true, 150, 0, 0, 0, 0, 0, "Run", 1);
+	UI.Logo.assets[-1] = UI.AddLogoAsset("UI.Logo.LeftSideNPCShadow", UI.Logo.shadowScene, 90029, true, 150, 0, 0, 0, 0, 0, "Run", 1);
+	UI.Logo.assets[2] = UI.AddLogoAsset("UI.Logo.RightSideNPC", UI.Logo.scene, 16259, true, 210, 0, 0, 0, 0, 0, "Run", 2);
+	UI.Logo.assets[-2] = UI.AddLogoAsset("UI.Logo.RightSideNPCShadow", UI.Logo.shadowScene, 16259, true, 210, 0, 0, 0, 0, 0, "Run", 2);
+	UI.Logo.assets[3] = UI.AddLogoAsset("UI.Logo.MonsterNPC", UI.Logo.scene, 378, true, 180, -10, 0, 0, 0, 0, "Run", 4);
+	UI.Logo.assets[-3] = UI.AddLogoAsset("UI.Logo.MonsterNPCShadow", UI.Logo.shadowScene, 378, true, 180, -10, 0, 0, 0, 0, "Run", 4);
+	UI.Logo.assets[4] = UI.AddLogoAsset("UI.Logo.CenterNPC", UI.Logo.scene, 87401, true, 180, 0, 0, 0, 0, 0, "Run", 1.5);
+	UI.Logo.assets[-4] = UI.AddLogoAsset("UI.Logo.CenterNPCShadow", UI.Logo.shadowScene, 87401, true, 180, 0, 0, 0, 0, 0, "Run", 1.5);
+	UI.Logo.assets[6] = UI.AddLogoAsset("UI.Logo.Cloud", UI.Logo.bgScene, 394984, false, 90, 0, 0, 0, -0.3, -0.1, "Stand", 3);
+end
 
-	UI.Logo.assets[-1] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-1]");
-    UI.Logo.assets[-1]:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
-    UI.Logo.assets[-1]:SetYaw(math.rad(180 - 30));
-	UI.Logo.assets[-1]:SetPosition(0, 0, 0);
-	UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[-1]:SetPaused(true);
-
-	-- Right side npc
-	UI.Logo.assets[2] = UI.Logo.scene:CreateActor("UI.Logo.assets[2]");
-    UI.Logo.assets[2]:SetModelByCreatureDisplayID(16259);
-    UI.Logo.assets[2]:SetYaw(math.rad(180 + 30));
-	UI.Logo.assets[2]:SetPosition(0, 0, 0);
-	UI.Logo.assets[2]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[2]:SetPaused(true);
-	UI.Logo.assets[2]:SetScale(2);
-
-	UI.Logo.assets[-2] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-2]");
-    UI.Logo.assets[-2]:SetModelByCreatureDisplayID(16259);
-    UI.Logo.assets[-2]:SetYaw(math.rad(180 + 30));
-	UI.Logo.assets[-2]:SetPosition(0, 0, 0);
-	UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[-2]:SetPaused(true);
-	UI.Logo.assets[-2]:SetScale(2);
-
-	-- Monster npc
-	UI.Logo.assets[3] = UI.Logo.scene:CreateActor("UI.Logo.assets[3]");
-    UI.Logo.assets[3]:SetModelByCreatureDisplayID(378);
-    UI.Logo.assets[3]:SetYaw(math.rad(180));
-	UI.Logo.assets[3]:SetPitch(math.rad(-10));
-	UI.Logo.assets[3]:SetPosition(0, 0, 0);
-	UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[3]:SetPaused(true);
-	UI.Logo.assets[3]:SetScale(4);
-
-	UI.Logo.assets[-3] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-3]");
-    UI.Logo.assets[-3]:SetModelByCreatureDisplayID(378);
-    UI.Logo.assets[-3]:SetYaw(math.rad(180));
-	UI.Logo.assets[-3]:SetPitch(math.rad(-10));
-	UI.Logo.assets[-3]:SetPosition(0, 0, 0);
-	UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[-3]:SetPaused(true);
-	UI.Logo.assets[-3]:SetScale(4);
-
-	-- Center npc
-	UI.Logo.assets[4] = UI.Logo.scene:CreateActor("UI.Logo.assets[4]");
-    UI.Logo.assets[4]:SetModelByCreatureDisplayID(87401);
-	UI.Logo.assets[4]:SetYaw(math.rad(180));
-	UI.Logo.assets[4]:SetPosition(0, 0, 0);
-	UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[4]:SetPaused(true);
-	UI.Logo.assets[4]:SetScale(1.5);
-
-	UI.Logo.assets[-4] = UI.Logo.shadowScene:CreateActor("UI.Logo.assets[-4]");
-    UI.Logo.assets[-4]:SetModelByCreatureDisplayID(87401);
-    UI.Logo.assets[-4]:SetYaw(math.rad(180));
-	UI.Logo.assets[-4]:SetPosition(0, 0, 0);
-	UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"]);
-	UI.Logo.assets[-4]:SetPaused(true);
-	UI.Logo.assets[-4]:SetScale(1.5);
-
-	-- Mist fx
-	--[[
-	UI.Logo.assets[5] = UI.Logo.scene:CreateActor("UI.Logo.assets[5]");
-    UI.Logo.assets[5]:SetModelByFileID(1777475);
-    --UI.Logo.assets[-5]:SetYaw(math.rad(180));
-	UI.Logo.assets[5]:SetPosition(20, 0, -8);
-	--UI.Logo.assets[-5]:SetAnimation(Zee.animIndex["Stand"]);
-	UI.Logo.assets[5]:SetPaused(true);
-	UI.Logo.assets[5]:SetScale(0.3);
-	--]]
-	-- Clouds
-	UI.Logo.assets[6] = UI.Logo.bgScene:CreateActor("UI.Logo.assets[6]");
-    UI.Logo.assets[6]:SetModelByFileID(394984);
-	UI.Logo.assets[6]:SetYaw(math.rad(90));
-	UI.Logo.assets[6]:SetPosition(0, -0.3, -0.1);
-	UI.Logo.assets[6]:SetAnimation(Zee.animIndex["Stand"], 0, 0.1);
-	UI.Logo.assets[6]:SetScale(3);
-
+function UI.AddLogoAsset(name, scene, ID, isCreature, yaw, pitch, roll, posX, posY, posZ, animation, scale)
+	local asset = scene:CreateActor(name);
+	if isCreature == true then
+    	asset:SetModelByCreatureDisplayID(ID);
+	else
+		asset:SetModelByFileID(ID);
+	end
+    asset:SetYaw(math.rad(yaw));
+	asset:SetPitch(math.rad(pitch));
+	asset:SetRoll(math.rad(roll));
+	asset:SetPosition(posX, posY, posZ);
+	asset:SetAnimation(Zee.animIndex[animation]);
+	asset:SetPaused(true);
+	asset:SetScale(scale);
+	return asset;
 end
 
 function UI.CreateLogoText()
@@ -1156,7 +1252,7 @@ function Cutscene.Update()
 					local speed = 200;
 					local ofs = 50;
 					local ofs2 = 1.5;
-					for i = 1, table.getn(UI.Logo.Text[1]), 1 do
+					for i = 1, #UI.Logo.Text[1], 1 do
 						x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
@@ -1171,7 +1267,7 @@ function Cutscene.Update()
 						UI.Logo.Text[-1][i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 					end
 
-					for i = 1, table.getn(UI.Logo.Text[2]), 1 do
+					for i = 1, #UI.Logo.Text[2], 1 do
 						x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
 						UI.Logo.Text[2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
 						UI.Logo.Text[-2][i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
@@ -1311,7 +1407,7 @@ function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
 	if scale == nil then scale = 1 end
 	if point == nil then point = "CENTER" end;
 
-	local length = strlen(word);
+	local length = #word;
 	local w = {};
 	local offs = 0;
 	for	i = 1, length, 1 do
@@ -1491,135 +1587,352 @@ end
 --			Environment				--
 --------------------------------------
 
+--- Create Environment, executed only at initialization.
 function Environment.Create()
-	Environment.CreateLayer2_Ground();
-
-	--[[
-	-- Create background color --
-	Environment.BGColor = CreateFrame("Frame", "Environment.BGColor", Canvas.frame);
-	Environment.BGColor:SetWidth(Game.width);
-	Environment.BGColor:SetHeight(Game.height);
-	Environment.BGColor:SetPoint("BOTTOM", 0, 0);
-	Environment.BGColor.texture = Environment.BGColor:CreateTexture("Environment.BGColor_texture","BACKGROUND")
-	Environment.BGColor.texture:SetColorTexture(114/256, 119/256, 61/256);
-	Environment.BGColor.texture:SetAllPoints(Environment.BGColor);
-	Environment.BGColor:SetFrameLevel(5);
-
-	-- Create far background --
-    Environment.BGScene0 = CreateFrame("ModelScene", "Environment.BGScene0", Canvas.parentFrame);
-	Environment.BGScene0:SetPoint("CENTER", Canvas.parentFrame, "CENTER", 0, 0);
-    Environment.BGScene0:SetSize(Game.width, Game.height);
-    Environment.BGScene0:SetCameraPosition(-50, -5, 5);
-	Environment.BGScene0:SetFrameLevel(10);
-
-	Environment.BGScene0:SetFogColor(32/256, 39/256, 23/256);
-	Environment.BGScene0:SetFogFar(50);
-	Environment.BGScene0:SetFogNear(10);
-	Environment.BGScene0:SetCameraFarClip(1000);
-
-	Environment.actors0 = {};
-	for k = 1, 10, 1 do
-		Environment.actors0[k] = {};
-		Environment.actors0[k].frame = Environment.BGScene0:CreateActor("BGScene0.actor_" .. k);
-		Environment.actors0[k].frame:SetModelByFileID(2323113);
-		Environment.actors0[k].frame:SetYaw(math.rad(math.random() * 180));
-		Environment.actors0[k].frame:SetScale((max (math.random(), 0.7) * 1.5));
-		local dist = min((math.random() - 0.5) * 150 + 100, 200);
-		Environment.actors0[k].positionX = min((math.random() - 0.5) * 120 + 80, 200);
-		Environment.actors0[k].positionY = (math.random() - 0.5) * 160;
-		Environment.actors0[k].positionZ = (min(math.random(), 0.1)) * 10 - (dist / 10);
-	end
-
-	-- Create near background --
-	Environment.BGScene1 = CreateFrame("ModelScene", "Environment.BGScene1", Canvas.parentFrame);
-	Environment.BGScene1:SetPoint("CENTER", Canvas.parentFrame, "CENTER", 0, 0);
-    Environment.BGScene1:SetSize(Game.width, Game.height);
-    Environment.BGScene1:SetCameraPosition(-50, -5, 5);
-	Environment.BGScene1:SetFrameLevel(20);
-
-	Environment.BGScene1:SetFogColor(0.1, 0.1, 0.1);
-	Environment.BGScene1:SetFogFar(50);
-	Environment.BGScene1:SetFogNear(10);
-	Environment.BGScene1:SetCameraFarClip(1000);
-
-	Environment.actors1 = {};
-	for k = 1, 5, 1 do
-		Environment.actors1[k] = {};
-		Environment.actors1[k].frame = Environment.BGScene1:CreateActor("BGScene1.actor_" .. k);
-		Environment.actors1[k].frame:SetModelByFileID(2323113);
-		Environment.actors1[k].frame:SetYaw(math.rad(math.random() * 180));
-		Environment.actors1[k].frame:SetScale((max (math.random(), 0.7)));
-		Environment.actors1[k].positionX = min((math.random() - 0.5) * 20 - 30, 200);
-		Environment.actors1[k].positionY = (math.random() - 0.5) * 100;
-		Environment.actors1[k].positionZ = (min(math.random(), 0.3)) * 10;
-	end
-
-	-- Create vertical fogs --
-	Environment.VFogNear = CreateFrame("Frame", "Environment.VFogNear", Canvas.frame);
-	Environment.VFogNear:SetWidth(Game.width);
-	Environment.VFogNear:SetHeight(Game.height / 2);
-	Environment.VFogNear:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
-	Environment.VFogNear.texture = Environment.VFogNear:CreateTexture("Environment.VFogNear_texture","BACKGROUND")
-	Environment.VFogNear.texture:SetTexture(621343, "CLAMP", "CLAMP");
-	Environment.VFogNear.texture:SetAllPoints(Environment.VFogNear);
-	Environment.VFogNear.texture:SetTexCoord(0, 1, 0, 1);
-	Environment.VFogNear.texture:SetVertexColor(13/256, 47/256, 48/256, 1);
-	Environment.VFogNear.texture:SetBlendMode("BLEND");
-	Environment.VFogNear:SetFrameLevel(15);
-
-	Environment.VFogFar = CreateFrame("Frame", "Environment.VFogFar", Canvas.frame);
-	Environment.VFogFar:SetWidth(Game.width);
-	Environment.VFogFar:SetHeight(Game.height / 2);
-	Environment.VFogFar:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
-	Environment.VFogFar.texture = Environment.VFogFar:CreateTexture("Environment.VFogFar_texture","BACKGROUND")
-	Environment.VFogFar.texture:SetTexture(621343, "CLAMP", "CLAMP");
-	Environment.VFogFar.texture:SetAllPoints(Environment.VFogFar);
-	Environment.VFogFar.texture:SetTexCoord(0, 1, 0, 1);
-	Environment.VFogFar.texture:SetVertexColor(13/256, 47/256, 48/256, 1);
-	--Environment.VFogFar.texture:SetBlendMode("BLEND");
-	Environment.VFogFar:SetFrameLevel(8);
-	--]]
+	Environment.CreateLayer0();
+	Environment.CreateLayer1();
+	Environment.CreateLayer2();
+	Environment.CreateLayer3();
+	Environment.CreateLayer4();
+	Environment.CreateLayer5();
+	Environment.CreateLayer6();
+	Environment.CreateLayer7();
+	Environment.CreateLayer8();
 end
 
-function Environment.Update()
-	Environment.UpdateLayer2_Ground();
-	--[[
-	for k = 1, 10, 1 do
-		Environment.actors0[k].positionY = Environment.actors0[k].positionY + (Game.speed / 50);
-		Environment.actors0[k].frame:SetPosition(Environment.actors0[k].positionX, Environment.actors0[k].positionY, Environment.actors0[k].positionZ);
-		if Environment.actors0[k].positionY >= 90 then
-			Environment.actors0[k].positionY = -90;
-		end
-	end
-
-	for k = 1, 5, 1 do
-		Environment.actors1[k].positionY = Environment.actors1[k].positionY + (Game.speed / 50);
-		Environment.actors1[k].frame:SetPosition(Environment.actors1[k].positionX, Environment.actors1[k].positionY, Environment.actors1[k].positionZ);
-		if Environment.actors1[k].positionY >= 50 then
-			Environment.actors1[k].positionY = -50;
-		end
-	end
-	--]]
+--- Create Closest things to the camera, that occlude the play area
+function Environment.CreateLayer0()
+-- frame level 60
 end
 
-function Environment.CreateLayer2_Ground()
+--- Create Extra detail that goes on top of the ground layer (stones, light shafts)
+function Environment.CreateLayer1()
+-- frame level 52-59 (inclusive)
+end
+
+--- Create the Ground frames.
+function Environment.CreateLayer2()
     Ground.floorFrames = {}
 	Ground.floorEffectFrames = {}
+
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer2;
+
 	-- Create the floor frames --
-	for k = 1, Ground.height, 1 do
-		Ground.floorFrames[k] = Environment.CreateFrame("Ground.floorFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 50, 127784, "REPEAT");
-		Ground.floorEffectFrames[k] = Environment.CreateFrame("Ground.floorEffectFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 51, 3221839, "REPEAT", nil, {1,1,0.5,0.5});
+	for k = 1, def.depth, 1 do
+		Ground.floorFrames[k] = Environment.CreateFrame("Ground.floorFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 50, def.topTexID, "REPEAT");
+		Ground.floorEffectFrames[k] = Environment.CreateFrame("Ground.floorEffectFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 51, def.topHighlightTexID, "REPEAT", nil, def.topHighlightColor);
 	end	
 
-	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 50, 127784, "REPEAT")
-	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * Ground.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, Ground.shadowIntensity);
-	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * Ground.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, Ground.shadowIntensity, "BLEND");
-	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, Ground.height, "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, {1,1,0.5, Ground.lightRimIntensity}, Ground.shadowIntensity, "ADD");
-	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - Ground.height, Game.width, Ground.height, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5, Ground.lightRimIntensity}, Ground.shadowIntensity, "ADD");
-	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + Ground.height, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, Ground.shadowIntensity, "ADD");
+	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 50, def.sideTexID, "REPEAT")
+	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity);
+	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity, "BLEND");
+	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, def.depth, "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, def.lightRimColor, 1, "ADD");
+	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - def.depth, Game.width, def.depth, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, def.lightRimColor, 1, "ADD");
+	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + def.depth, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, 1, "ADD");
 
 end
 
+--- Create Background 3D scene
+function Environment.CreateLayer3()
+	local total = Environment.Constants.layer3MaxActors;
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer3;
+	if def.count > total then def.count = total end
+
+	Environment.BGScene = CreateFrame("ModelScene", "Environment.BGScene", Canvas.parentFrame);
+	Environment.BGScene:SetPoint("CENTER", Canvas.parentFrame, "CENTER", 0, 0);
+    Environment.BGScene:SetSize(Game.width, Game.height);
+    Environment.BGScene:SetCameraPosition(def.camPos[1], def.camPos[2], def.camPos[3]);
+	Environment.BGScene:SetFrameLevel(10);
+	Environment.BGScene:SetFogColor(def.fogColor[1], def.fogColor[2], def.fogColor[3]);
+	Environment.BGScene:SetFogFar(def.fogFar);
+	Environment.BGScene:SetFogNear(def.fogNear);
+	Environment.BGScene:SetCameraFarClip(1000);
+
+	Environment.actors = {};
+	for k = 1, total, 1 do
+		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
+		local fdef = def.fDefs[pick];
+
+		Environment.actors[k] = {};
+		Environment.actors[k].frame = Environment.BGScene:CreateActor("BGScene.actor_" .. k);
+		Environment.actors[k].frame:SetModelByFileID(fdef.fileID);
+
+		-- pos
+		if #fdef.x == 1 then
+			Environment.actors[k].positionX = fdef.x[1];
+		else
+			Environment.actors[k].positionX = Game.Lerp(fdef.x[1], fdef.x[2], Game.Random());
+		end
+		if #fdef.y == 1 then
+			Environment.actors[k].positionY = fdef.y[1];
+		else
+			Environment.actors[k].positionY = Game.Lerp(fdef.y[1], fdef.y[2], Game.Random());
+		end
+		if #fdef.z == 1 then
+			Environment.actors[k].positionZ = fdef.z[1];
+		else
+			Environment.actors[k].positionZ = Game.Lerp(fdef.z[1], fdef.z[2], Game.Random());
+		end
+
+		-- rot
+		if #fdef.yaw == 1 then
+			Environment.actors[k].frame:SetYaw(rad(fdef.yaw[1]));
+		else
+			Environment.actors[k].frame:SetYaw(rad(Game.Lerp(fdef.yaw[1], fdef.yaw[2], Game.Random())));
+		end
+		if #fdef.pitch == 1 then
+			Environment.actors[k].frame:SetPitch(rad(fdef.pitch[1]));
+		else
+			Environment.actors[k].frame:SetPitch(rad(Game.Lerp(fdef.pitch[1], fdef.pitch[2], Game.Random())));
+		end
+		if #fdef.roll == 1 then
+			Environment.actors[k].frame:SetRoll(rad(fdef.roll[1]));
+		else
+			Environment.actors[k].frame:SetRoll(rad(Game.Lerp(fdef.roll[1], fdef.roll[2], Game.Random())));
+		end
+
+		-- scale
+		if #fdef.scale == 1 then
+			Environment.actors[k].scale = fdef.scale[1];
+			Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
+		else
+			Environment.actors[k].scale = Game.Lerp(fdef.scale[1], fdef.scale[2], Game.Random());
+			Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
+		end
+
+		if k <= def.count then
+			Environment.actors[k].frame:Show();
+		else
+			Environment.actors[k].frame:Hide();
+		end
+	end
+end
+
+--- Create Gradient - Near Fog layer
+function Environment.CreateLayer4()
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer4;
+
+	Environment.FogNear = CreateFrame("Frame", "Environment.FogNear", Canvas.frame);
+	Environment.FogNear:SetSize(Game.width, def.height);
+	Environment.FogNear:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
+	Environment.FogNear.texture = Environment.FogNear:CreateTexture("Environment.VFogNear_texture","BACKGROUND")
+	Environment.FogNear.texture:SetTexture(Environment.Constants.layer4NearFogGradientID, "CLAMP", "CLAMP");
+	Environment.FogNear.texture:SetAllPoints(Environment.FogNear);
+	Environment.FogNear.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
+	Environment.FogNear.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.FogNear.texture:SetBlendMode("BLEND");
+	Environment.FogNear:SetFrameLevel(9);
+end
+
+--- Custom detail layer (Idk yet)
+function Environment.CreateLayer5()
+-- frame level = 8
+end
+
+--- Create the distance layer that contains 2D silhouettes or bilboards.
+function Environment.CreateLayer6()
+	local total = Environment.Constants.layer6MaxSprites;
+	Environment.Layer6Frames = {};
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer6;
+	if def.count > total then def.count = total end
+
+	for i = 1, total, 1 do
+		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
+		local fdef = def.fDefs[pick];
+
+		Environment.Layer6Frames[i] = {};
+		if fdef.x[1] == fdef.x[2] then
+			Environment.Layer6Frames[i].x = fdef.x[1];
+		else
+			Environment.Layer6Frames[i].x = Game.Lerp(fdef.x[1], fdef.x[2], Game.Random());
+		end
+		if fdef.y[1] == fdef.y[2] then
+			Environment.Layer6Frames[i].y = fdef.y[1];
+		else
+			Environment.Layer6Frames[i].y = Game.Lerp(fdef.y[1], fdef.y[2], Game.Random());
+		end
+		if fdef.proportional == true then
+			local val = Game.Lerp(fdef.w[1], fdef.w[2], Game.Random());
+			Environment.Layer6Frames[i].w = val;
+			Environment.Layer6Frames[i].h = val;
+		else
+			if fdef.w[1] == fdef.w[2] then
+				Environment.Layer6Frames[i].w = fdef.w[1];
+			else
+				Environment.Layer6Frames[i].w = Game.Lerp(fdef.w[1], fdef.w[2], Game.Random());
+			end
+			if fdef.h[1] == fdef.h[2] then
+				Environment.Layer6Frames[i].h = fdef.h[1];
+			else
+				Environment.Layer6Frames[i].h = Game.Lerp(fdef.h[1], fdef.h[2], Game.Random());
+			end
+		end
+		if fdef.speed[1] == fdef.speed[2] then
+			Environment.Layer6Frames[i].speed = fdef.speed[1];
+		else
+			Environment.Layer6Frames[i].speed = Game.Lerp(fdef.speed[1], fdef.speed[2], Game.Random());
+		end
+
+		Environment.Layer6Frames[i].frame = Environment.CreateSilhouette(
+			"Environment.Layer6Frames[" .. i .. "]",
+			Environment.Layer6Frames[i].x, Environment.Layer6Frames[i].y,
+			Environment.Layer6Frames[i].w, Environment.Layer6Frames[i].h, "CENTER", 7,
+			fdef.fileID, "CLAMP", {0, 1, 0, 1},
+			{Game.Lerp(fdef.color[1][1], fdef.color[2][1], Game.Random()), Game.Lerp(fdef.color[1][2], fdef.color[2][2], Game.Random()), Game.Lerp(fdef.color[1][3], fdef.color[2][3], Game.Random())},
+			fdef.alpha, nil
+		);	
+
+		if i <= def.count then
+			Environment.Layer6Frames[i].frame:Show();
+		else
+			Environment.Layer6Frames[i].frame:Hide();
+		end
+	end
+end
+
+--- Create the Skybox atmosphere gradient.
+function Environment.CreateLayer7()
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer7;
+
+	Environment.SkyGradient = CreateFrame("Frame", "Environment.SkyGradient", Canvas.frame);
+	Environment.SkyGradient:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
+	Environment.SkyGradient:SetSize(Game.width, def.height);
+	Environment.SkyGradient.texture = Environment.SkyGradient:CreateTexture("Environment.SkyGradient_texture","BACKGROUND")
+	Environment.SkyGradient.texture:SetTexture(Environment.Constants.layer7SkyGradientID, "CLAMP", "CLAMP");
+	Environment.SkyGradient.texture:SetAllPoints(Environment.VFoSkyGradientgFar);
+	Environment.SkyGradient.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
+	Environment.SkyGradient.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.SkyGradient:SetFrameLevel(6);
+end
+
+--- Create the Skybox Color frame.
+function Environment.CreateLayer8()
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer8;
+
+	Environment.SkyColor = CreateFrame("Frame", "Environment.SkyColor", Canvas.frame);
+	Environment.SkyColor:SetWidth(Game.width);
+	Environment.SkyColor:SetHeight(Game.height);
+	Environment.SkyColor:SetPoint("BOTTOM", 0, 0);
+	Environment.SkyColor.texture = Environment.SkyColor:CreateTexture("Environment.SkyColor_texture","BACKGROUND")
+	Environment.SkyColor.texture:SetColorTexture(def.color[1], def.color[2], def.color[3]);
+	Environment.SkyColor.texture:SetAllPoints(Environment.SkyColor);
+	Environment.SkyColor:SetFrameLevel(5);
+end
+
+--- Update environment, runs every frame.
+function Environment.Update()
+	Environment.UpdateLayer0();
+	Environment.UpdateLayer1();
+	Environment.UpdateLayer2();
+	Environment.UpdateLayer3();
+	Environment.UpdateLayer4();
+	Environment.UpdateLayer5();
+	Environment.UpdateLayer6();
+	Environment.UpdateLayer7();
+	Environment.UpdateLayer8();
+end
+
+-- Update foreground occluders
+function Environment.UpdateLayer0()
+
+end
+
+-- Update extra detail for ground layer
+function Environment.UpdateLayer1()
+
+end
+
+--- Update the Ground frames.
+function Environment.UpdateLayer2()
+	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer2;
+
+	-- Top frames --
+	local offset = (Game.time * 0.15625 * Game.speed * def.textureScale);
+	local firstScale = 1;
+	local firstScaleY = 1;
+	local kOfs = 15;
+	for k = 1, def.depth, 1 do
+		local diff = def.depth * 3;
+		local K = (diff / ((diff - k) + kOfs)) * 4;
+		local scale = (K * 0.5) * def.textureScale;
+		Ground.floorFrames[k].texture:SetTexCoord(offset - (scale / 3), offset + scale - (scale / 3), scale, scale - ((1 / K) / 8));
+		Ground.floorEffectFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8));
+		if k == 1 then
+			firstScale = scale;
+			firstScaleY = ((1 / K) / 8);
+		end
+	end
+
+	-- Side frame --
+	Ground.fgFloorFrame.texture:SetTexCoord(
+		offset - (firstScale / 3),
+		offset + firstScale - (firstScale / 3),
+		firstScale - firstScaleY,
+		def.textureScale * 1.2
+	);
+end
+
+--- Update Background 3D scene
+function Environment.UpdateLayer3()
+	for k = 1, Environment.Constants.layer3MaxActors, 1 do
+		Environment.actors[k].positionY = Environment.actors[k].positionY + ((Game.speed / 50) / Environment.actors[k].scale);
+		Environment.actors[k].frame:SetPosition(Environment.actors[k].positionX, Environment.actors[k].positionY, Environment.actors[k].positionZ);
+		if Environment.actors[k].positionY >= 50 / Environment.actors[k].scale then
+			Environment.actors[k].positionY = -50 / Environment.actors[k].scale;
+		end
+	end
+end
+
+--- Update Gradient - Near Fog layer
+--- Doesn't really have an update, just blending during transition.
+function Environment.UpdateLayer4()
+
+end
+
+--- Update Custom detail layer (Idk yet)
+function Environment.UpdateLayer5()
+
+end
+
+--- Update the distant 2D silhouettes
+function Environment.UpdateLayer6()
+	for i = 1, #Environment.Layer6Frames, 1 do
+		Environment.Layer6Frames[i].x = Environment.Layer6Frames[i].x - (Environment.Layer6Frames[i].speed * Environment.Constants.layer6SpeedAdjust * Game.speed);
+		if Environment.Layer6Frames[i].x + (Environment.Layer6Frames[i].w / 2) < -Game.width / 2 then
+			Environment.Layer6Frames[i].x = Game.width / 2 + Environment.Layer6Frames[i].w / 2;
+		end
+		Environment.Layer6Frames[i].frame:ClearAllPoints();
+		Environment.Layer6Frames[i].frame:SetPoint("CENTER", Environment.Layer6Frames[i].x, Environment.Layer6Frames[i].y);
+	end
+end
+
+--- Update the sky gradient.
+--- Doesn't really have an update, just blending during transition.
+function Environment.UpdateLayer7()
+
+end
+
+--- Update the sky color.
+--- Doesn't really have an update, just blending during transition.
+function Environment.UpdateLayer8()
+
+end
+
+--- Create a texture frame in the Canvas.
+---@param name string The name of the frame
+---@param x number X position in screen space
+---@param y number Y position in screen space
+---@param w number Frame with
+---@param h number Frame height
+---@param point string Anchor point in Canvas
+---@param frameLevel number Used for Z sorting the canvas frames
+---@param textureID number File ID of the texture to be rendered on the frame
+---@param wrap string Texture wrap mode
+---@param texCoord table Texture coordinates
+---@param color table Vertex color
+---@param alpha number Alpha value
+---@param blendMode string Frame blend mode operation
+---@return table frame The create frame reference 
 function Environment.CreateFrame(name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode)
 	if wrap == nil then wrap = "REPEAT" end
 
@@ -1645,28 +1958,48 @@ function Environment.CreateFrame(name, x, y, w, h, point, frameLevel, textureID,
 	return f;
 end
 
-function Environment.UpdateLayer2_Ground()
-	-- Top frames --
-	local offset = (Game.time * 0.25 * Game.speed);
-	local firstScale = 1;
-	local firstScaleY = 1;
-	local kOfs = 15;
-	for k = 1, Ground.height, 1 do
-		local diff = Ground.height * 3;
-		local K = (diff / ((diff - k) + kOfs)) * 4;
-		local scale = (K * 0.5) * Ground.textureScale;
-		Ground.floorFrames[k].texture:SetTexCoord(offset - (scale / 3), offset + scale - (scale / 3), scale, scale - ((1 / K) / 8))
-		Ground.floorEffectFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8))
-		if k == 1 then
-			firstScale = scale;
-			firstScaleY = ((1 / K) / 8);
-		end
+--- Create a silhouette frame in the Canvas.
+---@param name string The name of the frame
+---@param x number X position in screen space
+---@param y number Y position in screen space
+---@param w number Frame with
+---@param h number Frame height
+---@param point string Anchor point in Canvas
+---@param frameLevel number Used for Z sorting the canvas frames
+---@param textureID number File ID of the texture to be rendered on the frame
+---@param wrap string Texture wrap mode
+---@param texCoord table Texture coordinates
+---@param color table Vertex color
+---@param alpha number Alpha value
+---@param blendMode string Frame blend mode operation
+---@return table frame The create frame reference 
+function Environment.CreateSilhouette(name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode)
+	if wrap == nil then wrap = "REPEAT" end
+
+	local f = CreateFrame("Frame", name, Canvas.frame);
+	f:SetSize(w, h);
+	f:SetPoint(point, x, y);
+	f.texture = f:CreateTexture(name .. ".texture","BACKGROUND");
+	--f.texture:SetTexture(textureID, wrap, wrap);
+	f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
+	f.texture:SetAllPoints(f);
+	if texCoord ~= nil then 
+		f.texture:SetTexCoord(texCoord[1], texCoord[2], texCoord[3], texCoord[4]);
 	end
-
-	-- Side frame --
-	Ground.fgFloorFrame.texture:SetTexCoord(offset- (firstScale / 3), offset + firstScale - (firstScale / 3), firstScale - firstScaleY, 2)
+	if blendMode ~= nil then
+		f.texture:SetBlendMode(blendMode);
+	end
+	if alpha ~= nil then
+		f:SetAlpha(alpha);
+	end
+	f:SetFrameLevel(frameLevel);
+	local m = f:CreateMaskTexture();
+	m:SetTexture(textureID, "CLAMP", "CLAMP");
+	m:SetSize(w, h);
+	m:SetPoint("TOPLEFT", 0, 0);
+	f.texture:AddMaskTexture(m);
+	return f;
 end
-
 
 --------------------------------------
 --              Physics             --
