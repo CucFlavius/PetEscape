@@ -125,7 +125,7 @@ Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character
 Player.deathZone = 31;
 Game.DEBUG_TrailCount = 40;
 LevelGenerator.objectPoolSize = 10;
-Environment.Initial = "TestArea";
+Environment.Initial = "Beach";
 
 --------------------------------------
 --			     Data				--
@@ -322,7 +322,7 @@ Game.FX.Symbols =
 	["Z"] = {},
 };
 
-Game.Environment.Constants = 
+Environment.Constants = 
 {
 	layer7SkyGradientID = 2903846,--621343,
 	layer6SpeedAdjust = 0.1,
@@ -331,7 +331,7 @@ Game.Environment.Constants =
 	layer3MaxActors = 50,
 };
 
-Game.EnvironmentDefinitions =
+Environment.Definitions =
 {
 	["TestArea"] = 
 	{
@@ -387,6 +387,7 @@ Game.EnvironmentDefinitions =
 					color = { {32/256, 39/256, 23/256}, {32/256, 39/256, 23/256} },
 					alpha = 1,
 					proportional = true,
+					mask = true,
 				},
 			}
 		 },
@@ -434,7 +435,7 @@ Game.EnvironmentDefinitions =
 				[1] = {
 					fileID = 2323113,
 					x = { -40, 0 },
-					y = { -50, 50 },
+					y = { -60, 60 },
 					z = { 0, 3 },
 					yaw = { -180, 180 },
 					pitch = { 0 },
@@ -469,6 +470,7 @@ Game.EnvironmentDefinitions =
 					color = { {32/256, 39/256, 23/256}, {32/256, 39/256, 23/256} },
 					alpha = 1,
 					proportional = true,
+					mask = true,
 				},
 				--[[
 				[2] = { 
@@ -499,6 +501,220 @@ Game.EnvironmentDefinitions =
 			color = {114/256, 119/256, 61/256} 	-- Color of the sky
 		},
 	},
+
+	["Beach"] = {
+		Layer0 = { },
+		Layer1 = { },
+		Layer2 = { 
+			depth = 15,
+			topTexID = 1534179,
+			textureScale = 4,
+			sideTexID = 1534179,
+			topHighlightTexID = 0,
+			topHighlightColor = {120/256, 120/256, 180/256},
+			depthShadowIntensity = 0.5,
+			lightRimColor = {1,1,0.5,0.4},
+			lightRimSize = 20,
+			depthShadowScale = 1,
+		},
+		Layer3 = { 
+			camPos = {-50, -5, 5},						-- Camera position in 3D space
+			fogColor = {143/256, 217/256, 226/256},
+			fogFar = 400,
+			fogNear = 10,
+			count = 10,
+			fDefs = {
+				[1] = {
+					fileID = 1867821,	-- ship
+					x = { 20, 100 },
+					y = { -100, 100 },
+					z = { 1 },
+					yaw = { 90 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 1 },
+					animation = "Walk",
+				},
+				[2] = {
+					fileID = 661374,	--- water wave
+					x = { 10, 20 },
+					y = { -100, 100 },
+					z = { 1 },
+					yaw = { 90 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.5 },
+				},
+				-- Palm trees FG
+				[3] = {
+					fileID = 201800,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				},
+				[4] = {
+					fileID = 201801,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				},
+				[5] = {
+					fileID = 201802,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				},
+				[6] = {
+					fileID = 201800,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				},
+				[7] = {
+					fileID = 201801,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				},
+				[8] = {
+					fileID = 201802,
+					x = { -10, 10 },
+					y = { -100, 100 },
+					z = { -1 },
+					yaw = { -180, 180 },
+					pitch = { 0 },
+					roll = { 0 },
+					scale = { 0.7, 1.2 },
+				}
+			},
+		},
+		Layer4 = { 
+			blend = "ADD",
+			color = {143/256, 217/256, 226/256},
+			alpha = 0.5,
+			height = 30,
+			offsetY = 0,
+		},
+		Layer5 = { },
+		Layer6 = {
+			zDepth = 6,		-- Swapping zDepth with layer 6 so the clouds render below skybox
+			count = 10,		-- How many to spawn ( density )
+			fDefs = {
+				-- clouds
+				[1] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { 30, 60 },
+					w = { 150, 150 },
+					h = { 40, 60 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 1,
+					texCoord = { 0, 1, 0, 0.36 },
+					proportional = false,
+					mask = false,
+				},
+				[2] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { 30, 60 },
+					w = { 150, 150 },
+					h = { 40, 60 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 1,
+					texCoord = { 0, 1, 0.36, 0.65 },
+					proportional = false,
+					mask = false,
+				},
+				[3] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { 30, 60 },
+					w = { 150, 150 },
+					h = { 40, 60 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 1,
+					texCoord = { 0, 1, 0.67, 1 },
+					proportional = false,
+					mask = false,
+				},
+				-- clouds reflected in water
+				[4] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { -20, -25 },
+					w = { 150, 150 },
+					h = { 15, 20 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 0.2,
+					texCoord = { 0, 1, 0.36, 0 },
+					proportional = false,
+					mask = false,
+				},
+				[5] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { -20, -25 },
+					w = { 150, 150 },
+					h = { 15, 20 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 0.2,
+					texCoord = { 0, 1, 0.65, 0.36 },
+					proportional = false,
+					mask = false,
+				},
+				[6] = { 
+					fileID = 1940593,
+					x = { -300, 300 },
+					y = { -20, -25 },
+					w = { 150, 150 },
+					h = { 15, 20 },
+					speed = { 0.8, 1 },
+					color = { {1,1,1}, {1,1,1} },
+					alpha = 0.2,
+					texCoord = { 0, 1, 1, 0.67 },
+					proportional = false,
+					mask = false,
+				},
+			}
+		 },
+		 
+		Layer7 = { 
+			zDepth = 7,			-- Swapping zDepth with layer 6 so the clouds render below skybox
+			blend = "ADD",
+			color = {143/256, 217/256, 226/256},
+			alpha = 0.8,
+			height = 150,
+			offsetY = 40,
+		},
+		Layer8 = { 
+			color = {49/256, 117/256, 166/256}
+		}
+	}
 };
 
 --------------------------------------
@@ -1615,7 +1831,7 @@ function Environment.CreateLayer2()
     Ground.floorFrames = {}
 	Ground.floorEffectFrames = {}
 
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer2;
+	local def = Environment.Definitions[Environment.Initial].Layer2;
 
 	-- Create the floor frames --
 	for k = 1, def.depth, 1 do
@@ -1626,8 +1842,8 @@ function Environment.CreateLayer2()
 	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 50, def.sideTexID, "REPEAT")
 	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity);
 	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity, "BLEND");
-	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, def.depth, "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, def.lightRimColor, 1, "ADD");
-	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - def.depth, Game.width, def.depth, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, def.lightRimColor, 1, "ADD");
+	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, def.depth + (def.lightRimSize or 0), "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, def.lightRimColor, 1, "ADD");
+	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - def.depth - (def.lightRimSize or 0), Game.width, def.depth + (def.lightRimSize or 0), "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, def.lightRimColor, 1, "ADD");
 	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + def.depth, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, 1, "ADD");
 
 end
@@ -1635,7 +1851,7 @@ end
 --- Create Background 3D scene
 function Environment.CreateLayer3()
 	local total = Environment.Constants.layer3MaxActors;
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer3;
+	local def = Environment.Definitions[Environment.Initial].Layer3;
 	if def.count > total then def.count = total end
 
 	Environment.BGScene = CreateFrame("ModelScene", "Environment.BGScene", Canvas.parentFrame);
@@ -1656,6 +1872,7 @@ function Environment.CreateLayer3()
 		Environment.actors[k] = {};
 		Environment.actors[k].frame = Environment.BGScene:CreateActor("BGScene.actor_" .. k);
 		Environment.actors[k].frame:SetModelByFileID(fdef.fileID);
+		Environment.actors[k].frame:SetAnimation(Zee.animIndex[fdef.animation or "Stand"], 0, 1);
 
 		-- pos
 		if #fdef.x == 1 then
@@ -1710,18 +1927,27 @@ end
 
 --- Create Gradient - Near Fog layer
 function Environment.CreateLayer4()
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer4;
+	local def = Environment.Definitions[Environment.Initial].Layer4;
 
 	Environment.FogNear = CreateFrame("Frame", "Environment.FogNear", Canvas.frame);
 	Environment.FogNear:SetSize(Game.width, def.height);
-	Environment.FogNear:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
+	Environment.FogNear:SetPoint("BOTTOM", 0, Ground.floorOffsetY + (def.offsetY or 0));
 	Environment.FogNear.texture = Environment.FogNear:CreateTexture("Environment.VFogNear_texture","BACKGROUND")
-	Environment.FogNear.texture:SetTexture(Environment.Constants.layer4NearFogGradientID, "CLAMP", "CLAMP");
+	--Environment.FogNear.texture:SetTexture(Environment.Constants.layer4NearFogGradientID, "CLAMP", "CLAMP");
 	Environment.FogNear.texture:SetAllPoints(Environment.FogNear);
-	Environment.FogNear.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
-	Environment.FogNear.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
-	Environment.FogNear.texture:SetBlendMode("BLEND");
+	--Environment.FogNear.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
+	--Environment.FogNear.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.FogNear.texture:SetBlendMode(def.blend or "BLEND");
 	Environment.FogNear:SetFrameLevel(9);
+
+	Environment.FogNear.maskTexture =  Environment.FogNear:CreateMaskTexture();
+	Environment.FogNear.maskTexture:SetTexture(Environment.Constants.layer4NearFogGradientID, "CLAMP", "CLAMP");
+	Environment.FogNear.maskTexture:SetSize(Game.width, def.height);
+	Environment.FogNear.maskTexture:SetPoint("TOPLEFT", 0, 0);
+	--Environment.FogNear.maskTexture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
+	
+	Environment.FogNear.texture:SetColorTexture(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.FogNear.texture:AddMaskTexture(Environment.FogNear.maskTexture);
 end
 
 --- Custom detail layer (Idk yet)
@@ -1733,9 +1959,10 @@ end
 function Environment.CreateLayer6()
 	local total = Environment.Constants.layer6MaxSprites;
 	Environment.Layer6Frames = {};
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer6;
+	local def = Environment.Definitions[Environment.Initial].Layer6;
 	if def.count > total then def.count = total end
-
+	local zDepth = def.zDepth or 7;
+	local blend = def.blend or nil;
 	for i = 1, total, 1 do
 		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
 		local fdef = def.fDefs[pick];
@@ -1773,14 +2000,15 @@ function Environment.CreateLayer6()
 			Environment.Layer6Frames[i].speed = Game.Lerp(fdef.speed[1], fdef.speed[2], Game.Random());
 		end
 
+		local texCoord = fdef.texCoord or {0, 1, 0, 1};
 		Environment.Layer6Frames[i].frame = Environment.CreateSilhouette(
 			"Environment.Layer6Frames[" .. i .. "]",
 			Environment.Layer6Frames[i].x, Environment.Layer6Frames[i].y,
-			Environment.Layer6Frames[i].w, Environment.Layer6Frames[i].h, "CENTER", 7,
-			fdef.fileID, "CLAMP", {0, 1, 0, 1},
+			Environment.Layer6Frames[i].w, Environment.Layer6Frames[i].h, "CENTER", zDepth,
+			fdef.fileID, "CLAMP", texCoord,
 			{Game.Lerp(fdef.color[1][1], fdef.color[2][1], Game.Random()), Game.Lerp(fdef.color[1][2], fdef.color[2][2], Game.Random()), Game.Lerp(fdef.color[1][3], fdef.color[2][3], Game.Random())},
-			fdef.alpha, nil
-		);	
+			fdef.alpha, blend, def.mask
+		);
 
 		if i <= def.count then
 			Environment.Layer6Frames[i].frame:Show();
@@ -1792,22 +2020,31 @@ end
 
 --- Create the Skybox atmosphere gradient.
 function Environment.CreateLayer7()
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer7;
-
+	local def = Environment.Definitions[Environment.Initial].Layer7;
+	local zDepth = def.zDepth or 6;
 	Environment.SkyGradient = CreateFrame("Frame", "Environment.SkyGradient", Canvas.frame);
-	Environment.SkyGradient:SetPoint("BOTTOM", 0, Ground.floorOffsetY);
+	Environment.SkyGradient:SetPoint("BOTTOM", 0, Ground.floorOffsetY + (def.offsetY or 0));
 	Environment.SkyGradient:SetSize(Game.width, def.height);
 	Environment.SkyGradient.texture = Environment.SkyGradient:CreateTexture("Environment.SkyGradient_texture","BACKGROUND")
-	Environment.SkyGradient.texture:SetTexture(Environment.Constants.layer7SkyGradientID, "CLAMP", "CLAMP");
-	Environment.SkyGradient.texture:SetAllPoints(Environment.VFoSkyGradientgFar);
-	Environment.SkyGradient.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
+	--Environment.SkyGradient.texture:SetTexture(Environment.Constants.layer7SkyGradientID, "CLAMP", "CLAMP");
+	Environment.SkyGradient.texture:SetAllPoints(Environment.SkyGradient);
+	--Environment.SkyGradient.texture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
 	Environment.SkyGradient.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
-	Environment.SkyGradient:SetFrameLevel(6);
+	Environment.SkyGradient.texture:SetBlendMode(def.blend or "BLEND");
+	Environment.SkyGradient:SetFrameLevel(zDepth);
+	Environment.SkyGradient.maskTexture =  Environment.SkyGradient:CreateMaskTexture();
+	Environment.SkyGradient.maskTexture:SetTexture(Environment.Constants.layer7SkyGradientID, "CLAMP", "CLAMP");
+	Environment.SkyGradient.maskTexture:SetSize(Game.width, def.height);
+	Environment.SkyGradient.maskTexture:SetPoint("TOPLEFT", 0, 0);
+	
+	Environment.SkyGradient.texture:SetColorTexture(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.SkyGradient.texture:AddMaskTexture(Environment.SkyGradient.maskTexture);
+
 end
 
 --- Create the Skybox Color frame.
 function Environment.CreateLayer8()
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer8;
+	local def = Environment.Definitions[Environment.Initial].Layer8;
 
 	Environment.SkyColor = CreateFrame("Frame", "Environment.SkyColor", Canvas.frame);
 	Environment.SkyColor:SetWidth(Game.width);
@@ -1844,7 +2081,7 @@ end
 
 --- Update the Ground frames.
 function Environment.UpdateLayer2()
-	local def = Game.EnvironmentDefinitions[Environment.Initial].Layer2;
+	local def = Environment.Definitions[Environment.Initial].Layer2;
 
 	-- Top frames --
 	local offset = (Game.time * 0.15625 * Game.speed * def.textureScale);
@@ -1973,15 +2210,14 @@ end
 ---@param alpha number Alpha value
 ---@param blendMode string Frame blend mode operation
 ---@return table frame The create frame reference 
-function Environment.CreateSilhouette(name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode)
+function Environment.CreateSilhouette(name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode, mask)
 	if wrap == nil then wrap = "REPEAT" end
 
 	local f = CreateFrame("Frame", name, Canvas.frame);
 	f:SetSize(w, h);
 	f:SetPoint(point, x, y);
 	f.texture = f:CreateTexture(name .. ".texture","BACKGROUND");
-	--f.texture:SetTexture(textureID, wrap, wrap);
-	f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
+
 	f.texture:SetAllPoints(f);
 	if texCoord ~= nil then 
 		f.texture:SetTexCoord(texCoord[1], texCoord[2], texCoord[3], texCoord[4]);
@@ -1993,11 +2229,20 @@ function Environment.CreateSilhouette(name, x, y, w, h, point, frameLevel, textu
 		f:SetAlpha(alpha);
 	end
 	f:SetFrameLevel(frameLevel);
-	local m = f:CreateMaskTexture();
-	m:SetTexture(textureID, "CLAMP", "CLAMP");
-	m:SetSize(w, h);
-	m:SetPoint("TOPLEFT", 0, 0);
-	f.texture:AddMaskTexture(m);
+	f.maskTexture =  f:CreateMaskTexture();
+	f.maskTexture:SetTexture(textureID, "CLAMP", "CLAMP");
+	f.maskTexture:SetSize(w, h);
+	f.maskTexture:SetPoint("TOPLEFT", 0, 0);
+	
+
+	if mask == true then
+		f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
+		f.texture:AddMaskTexture(f.maskTexture);
+	else
+		f.texture:SetTexture(textureID, wrap, wrap);
+		f.texture:SetVertexColor(color[1], color[2], color[3], color[4]);
+	end
+
 	return f;
 end
 
