@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------
 -- • Title: Pet Escape									  			--
 -- • Description : A mini-game designed for World of Warcraft 		--
--- • Version: 0.1 Development								  		--
+-- • Version: 0.2 Development								  		--
 -- • Contact In game: Songzee (ArgentDawn)(EU)			  			--
 -- • Contact Email: cucflavius@gmail.com					  		--
 -- • Some more details about the project:							--
@@ -53,8 +53,9 @@ local max = math.max;
 --------------------------------------
 --  Settings						--
 --------------------------------------
-Game.devMode = true;
-Game.debugNoMenu = true;
+Game.version = 0.2;
+Game.devMode = false;
+Game.debugNoMenu = false;
 Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
 Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
 Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
@@ -137,9 +138,53 @@ function Game.CreateObjectDefinitions()
 			scale = 1,
 			solid = false,
 			danger = 0,
-			collider = { x = 0, y = 0, w = 5, h = 5 },
+			collider = { x = 0, y = 0, w = 5, h = 4 },
 			offset = { x = 0, y = 0 },
 			ai = nil,
+		},
+
+		["WoodenLogA0"] = {
+			id = 2357607,
+			scale = 4,
+			solid = true,
+			danger = 0,
+			collider = { x = 1, y = 0, w = 3, h = 2.5 },
+			offset = { x = 0, y = 0.65 },
+			yaw = 90,
+			pitch = 20,
+			ai = nil,
+		},
+
+		["WoodenLogA1"] = {
+			id = 2357608,
+			scale = 4,
+			solid = true,
+			danger = 0,
+			collider = { x = 1, y = 0, w = 3, h = 2.5 },
+			offset = { x = 0, y = 0.65 },
+			yaw = 90,
+			pitch = 20,
+			ai = nil,
+		},
+
+		["SideLogA"] = {
+			-- id = 2357604,
+			id = 2357608,
+			scale = 4,
+			solid = true,
+			danger = 0,
+			collider = { x = -6, y = 0, w = 20, h = 2.5 },
+			offset = { x = 0, y = 0.65 },
+		},
+
+		["SawBlade"] = {
+			id = 2831400,
+			scale = 1,
+			solid = false,
+			danger = 1,
+			ai = { Initialize = AI.SawBladeInit, Update = AI.SawBladeUpdate },
+			offset = { x = 0, y = 3.5 },
+			collider = { x = 0, y = 0, w = 3, h = 3 },
 		},
 
 		["Crate"] = 
@@ -198,6 +243,32 @@ function Game.CreateObjectDefinitions()
 			offset = { x = 0, y = 0 },
 			ai = { Initialize = AI.CoinFloatyInit, Update = AI.CoinFloatyUpdate },
 		},
+
+		["RoombaL"] = 
+		{
+			id = 83617,
+			scale = 2.5,
+			creature = true,
+			solid = false,
+			danger = 2,
+			offset = { x = 0, y = 0 },
+			collider = { x = 2, y = 0, w = 3, h = 3 },
+			yaw = 90,	-- decides ai walk direction 
+			ai = { Initialize = AI.RoombaInit, Update = AI.RoombaUpdate },
+		},
+
+		["RoombaR"] = 
+		{
+			id = 83617,
+			scale = 2.5,
+			creature = true,
+			solid = false,
+			danger = 2,
+			offset = { x = 0, y = 0 },
+			collider = { x = 2, y = 0, w = 3, h = 3 },
+			yaw = -90,	-- decides ai walk direction 
+			ai = { Initialize = AI.RoombaInit, Update = AI.RoombaUpdate },
+		},
 	}
 end
 
@@ -205,25 +276,23 @@ Game.Puzzles =
 {
 	["1Empty"] =
 	{
-		objectCount = 0,
 		length = 1,
 	},
 
 	["4Empty"] =
 	{
-		objectCount = 0,
 		length = 4,
 	},
 
 	["RoofTest"] = 
 	{
-		objectCount = 4,
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
 			{ dName = "Crate", position = { x = 1.27, y = 1.27 * 3 } },
 			{ dName = "Crate", position = { x = 1.27 * 2, y = 1.27 * 3 } },
 			{ dName = "Crate", position = { x = 1.27 * 3, y = 1.27 * 2 } },
+			{ dName = "CoinStatic", position = { x = 1.27 * 2, y = 5.5 } },
 		},
 		length = 1.27 * 4;
 	},
@@ -231,12 +300,11 @@ Game.Puzzles =
 	
 	["RoofSlideTest"] = 
 	{
-		objectCount = 4,
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 1.27 } },
 			{ dName = "Crate", position = { x = 0, y = 1.27 * 2 } },
-			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
+			{ dName = "CoinStatic", position = { x = 0, y = 4.3 } },
 			{ dName = "Crate", position = { x = 0, y = 1.27 * 4 } },
 		},
 		length = 7;
@@ -244,7 +312,6 @@ Game.Puzzles =
 
 	["CannonTest"] = 
 	{
-		objectCount = 1,
 		objects = 
 		{ 
 			--{ dName = "Crate", position = { x = 0, y = 0 } },
@@ -256,7 +323,6 @@ Game.Puzzles =
 
 	["CoinTest"] = 
 	{
-		objectCount = 6,
 		objects = 
 		{ 
 			{ dName = "CoinFloaty", position = { x = 0, y = 1 } },
@@ -269,9 +335,64 @@ Game.Puzzles =
 		length = 6;
 	},
 
+	["ForestTest"] = 
+	{
+		objects = 
+		{ 
+			-- { dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+			-- { dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
+			-- { dName = "SawBlade", position = { x = 0, y = 0 } },
+			-- { dName = "SideLogA", position = { x = 0, y = 0 } },
+			-- { dName = "SideLogA", position = { x = 6, y = 0 } },
+			{ dName = "RoombaR", position = { x = 0, y = 0 } },
+			{ dName = "RoombaL", position = { x = 4, y = 0 } },
+		},
+		length = 10;
+	},
+
+	["ForestLogs0"] = 
+	{
+		objects = 
+		{ 
+			{ dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+		},
+		length = 5,
+	},
+
+	["ForestLogs1"] = 
+	{
+		objects = 
+		{ 
+			{ dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+			{ dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
+		},
+		length = 5,
+	},
+
+	["RoombaL"] = 
+	{
+		objects = 
+		{ 
+			{ dName = "RoombaL", position = { x = 4, y = 0 } },
+			{ dName = "CoinFloaty", position = { x = 0, y = 5 } },
+			{ dName = "CoinFloaty", position = { x = 1, y = 4 } },
+		},
+		length = 8;
+	},
+
+	["RoombaR"] = 
+	{
+		objects = 
+		{ 
+			{ dName = "RoombaL", position = { x = 4, y = 0 } },
+			{ dName = "CoinFloaty", position = { x = 3, y = 4 } },
+			{ dName = "CoinFloaty", position = { x = 4, y = 5 } },
+		},
+		length = 8;
+	},
+
 	["1Crate"] = 
 	{
-		objectCount = 1,
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
@@ -281,7 +402,6 @@ Game.Puzzles =
 
 	["4CratesLine"] = 
 	{
-		objectCount = 4,
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
@@ -294,7 +414,6 @@ Game.Puzzles =
 
 	["4CratesTetris"] = 
 	{
-		objectCount = 4,
 		objects = 
 		{ 
 			{ dName = "Crate", position = { x = 0, y = 0 } },
@@ -313,14 +432,19 @@ Game.CharacterDisplayIDs =
 
 Game.AnimationIDs = 
 {
-	Stand = 0,
-	Walk = 4,
-	Run = 5,
-	AttackUnarmed = 16,
-    JumpStart = 37,
-    Jump = 38,
-    JumpEnd = 39,
-    Fall = 40,
+	["Stand"] = 0,
+	["Death"] = 1,
+	["Walk"] = 4,
+	["Run"] = 5,
+	["CombatWound"] = 9,
+	["CombatCritical"] = 10,
+	["AttackUnarmed"] = 16,
+    ["JumpStart"] = 37,
+    ["Jump"] = 38,
+    ["JumpEnd"] = 39,
+    ["Fall"] = 40,
+	["Hold"] = 158,
+	["Emerge"] = 224,
 };
 
 Game.Fonts = 
@@ -795,6 +919,7 @@ function Game.Over(died)
 	Game.over = true;
 	if died == true then
 		Cutscene.Play("Death");
+		Game.matchCoins = 0;
 	end
 end
 
@@ -893,32 +1018,37 @@ function LevelGenerator.Update()
 		if Game.GameObjects[k].active == true then
 			Game.GameObjects[k].position.x = Game.GameObjects[k].position.x + (Game.speed / Game.SCENE_SYNC);
 			local x1,y1,z1 = Game.GameObjects[k].actor:GetPosition();
-			Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
+			Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / (Game.GameObjects[k].definition.scale or 1), Game.GameObjects[k].position.y);
 			if Game.GameObjects[k].definition.ai ~= nil then
 				Game.GameObjects[k].definition.ai.Update(Game.GameObjects[k]);
 			end
-			if Game.GameObjects[k].position.x > 10 then
+			if Game.GameObjects[k].position.x > 15 then
 				Game.GameObjects[k].ai = nil;
 				Game.GameObjects[k].active = false;
-				Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
+				Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / (Game.GameObjects[k].definition.scale or 1), Game.GameObjects[k].position.y);
 			end
 		end
 	end
 end
 
 function LevelGenerator.SpawnPuzzle()
-	--local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
+	-- local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
 	-- local puzzles = { "1Empty" };
-	local puzzles = { "CoinTest", "4Empty" };
+	-- local puzzles = { "CoinTest", "4Empty" };
+	-- local puzzles = { "RoofSlideTest" };
+
+	-- some puzzles for testing
+	local puzzles = { "ForestLogs1", "ForestLogs0", "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "RoofSlideTest","RoofTest", "CoinTest", "RoombaL", "RoombaR" };
 	local pick = floor(Game.Random() * #puzzles) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
-	for k = 1, puzzle.objectCount, 1 do
-		local position ={ x = puzzle.objects[k].position.x - 10 - puzzle.length, y = puzzle.objects[k].position.y, z = (puzzle.objects[k].position.z or 0)  };
-		--position.x = - 10;
-		LevelGenerator.SpawnObject(puzzle.objects[k].dName, position)
+	if puzzle.objects ~= nil then
+		for k = 1, #puzzle.objects, 1 do
+			local position = { x = puzzle.objects[k].position.x - 10 - puzzle.length, y = puzzle.objects[k].position.y, z = (puzzle.objects[k].position.z or 0)  };
+			--position.x = - 10;
+			LevelGenerator.SpawnObject(puzzle.objects[k].dName, position)
+		end
 	end
-
 	LevelGenerator.puzzleLength = puzzle.length;
 end
 
@@ -930,14 +1060,29 @@ function LevelGenerator.SpawnObject(dName, position)
 	if dName ~= definitionName then
 		Game.GameObjects[goIndex].defName = dName;
 		Game.GameObjects[goIndex].definition = definition;
-		Game.GameObjects[goIndex].actor:SetModelByFileID(definition.id);
-		Game.GameObjects[goIndex].actor:SetScale(definition.scale);
+		definition.creature = definition.creature or false;
+		if definition.creature == false then
+			Game.GameObjects[goIndex].actor:SetModelByFileID(definition.id or 0);
+		else
+			Game.GameObjects[goIndex].actor:SetModelByCreatureDisplayID(definition.id or 0);
+		end
+		Game.GameObjects[goIndex].actor:SetScale(definition.scale or 1);
 		Game.GameObjects[goIndex].actor:SetRoll(rad(0));
 	end
 
-	Game.GameObjects[goIndex].position.x = position.x + definition.offset.x;
-	Game.GameObjects[goIndex].position.y = position.y + definition.offset.y;
-	Game.GameObjects[goIndex].position.z = position.z + (definition.offset.z or 0);
+	if definition.offset ~= nil then
+		Game.GameObjects[goIndex].position.x = position.x + (definition.offset.x or 0);
+		Game.GameObjects[goIndex].position.y = position.y + (definition.offset.y or 0);
+		Game.GameObjects[goIndex].position.z = position.z + (definition.offset.z or 0);
+	else
+		Game.GameObjects[goIndex].position.x = position.x;
+		Game.GameObjects[goIndex].position.y = position.y;
+		Game.GameObjects[goIndex].position.z = position.z;
+	end
+
+	Game.GameObjects[goIndex].actor:SetYaw(rad(definition.yaw or 0));
+	Game.GameObjects[goIndex].actor:SetPitch(rad(definition.pitch or 0));
+
 	Game.GameObjects[goIndex].actor:SetAlpha(definition.alpha or 1);
 
 	if Game.GameObjects[goIndex].definition.ai ~= nil then
@@ -1105,6 +1250,84 @@ function AI.Collect(gameObject)
 		UI.HUD.SetCoins();
 		if UI.HUD.coinCollectTimer >= 1 then
 			UI.HUD.coinCollectTimer = 0;
+		end
+	end
+end
+
+function AI.SawBladeInit(gameObject)
+	gameObject.currentAnimation = "Hold";
+	gameObject.ai = {};
+	gameObject.ai.time = 0;
+	gameObject.actor:SetAnimation(Game.AnimationIDs[gameObject.currentAnimation], 0, 0.1, 1);
+	gameObject.actor:SetYaw(rad(90));
+end
+
+function AI.SawBladeUpdate(gameObject)
+
+end
+
+function AI.RoombaInit(gameObject)
+	gameObject.currentAnimation = "Walk";
+	gameObject.ai = {};
+	gameObject.ai.time = 0;
+	gameObject.ai.kill = false;
+	gameObject.alive = true;
+	gameObject.ai.killTimer = -1;
+	gameObject.actor:SetAnimation(Game.AnimationIDs[gameObject.currentAnimation], 0, 1, 1);
+end
+
+function AI.RoombaUpdate(gameObject)
+	gameObject.ai.time = gameObject.ai.time + 1;
+	x,y,z = gameObject.actor:GetPosition();
+
+	-- trigger kill
+	if gameObject.ai.kill == true then
+		gameObject.ai.kill = false;
+		gameObject.ai.killTimer = 0;
+	end
+
+	-- if alive, patroll
+	if gameObject.alive == true then
+		if gameObject.actor:GetYaw() > 0 then
+			gameObject.position.x = gameObject.position.x + 0.02;
+		elseif gameObject.actor:GetYaw() < 0 then
+			gameObject.position.x = gameObject.position.x - 0.02;
+		end
+	end
+
+	-- play kill animation
+	if gameObject.ai.killTimer == 0 then
+		gameObject.ai.killTimer = gameObject.ai.killTimer + 1;
+
+		if gameObject.ai.killTimer == 1 then
+			gameObject.actor:SetAnimation(Game.AnimationIDs["Death"], 1, 1, 1);
+		elseif gameObject.ai.killTimer == 20 then
+			--gameObject.actor:SetPaused(true);
+		end
+		if gameObject.ai.killTimer > 10 and gameObject.ai.killTimer < 100 then
+			-- Animate character going up and then down, falling off the screen
+			-- I know at least a dozen games that do this, time to pay homage ;)
+			local localTime = gameObject.ai.killTimer - 10;
+			local localNormalizedTime = localTime / 170;
+			local increment = localTime / 10;
+			local bounce = sin(localNormalizedTime * PI * 1.5) * 15;
+			--[[
+			local x, y, z = gameObject.actor:GetPosition();
+			gameObject.actor:SetPosition(
+				x - increment,
+				y - increment,
+				z + bounce - increment
+			);
+			--]]
+			--gameObject.positionX = gameObject.positionX - increment;
+			--gameObject.positionY = gameObject.positionY + bounce - increment;
+			--gameObject.actor:SetAnimation(Game.AnimationIDs["Death"], 0, 1, 1);
+		elseif gameObject.ai.killTimer == 100 then
+			gameObject.actor:SetPosition(
+				100,
+				100,
+				100
+			);
 		end
 	end
 end
@@ -1490,7 +1713,7 @@ end
 
 function UI.MainMenu.Animate()
 	local x, y;
-	local speed = 200;
+	local speed = 5;
 	local ofs = 50;
 	local ofs2 = 1.5;
 	for b = 1, #UI.MainMenu.buttons, 1 do
@@ -1642,7 +1865,7 @@ end
 function UI.HUD.Create()
 	UI.HUD.texts = {};
 
-	local hudFrameLevel = 1201;
+	local hudFrameLevel = 1101;
 
 	-- Coins text
 	UI.HUD.coins = {};
@@ -1674,7 +1897,7 @@ end
 
 function UI.HUD.Animate()
 	local x, y;
-	local speed = 200;
+	local speed = 5;
 	local ofs = 50;
 	local ofs2 = 1.5;
 	for b = 1, #UI.HUD.texts, 1 do
@@ -1757,7 +1980,15 @@ function Cutscene.Update()
 			if Cutscene.time > 30 and Cutscene.time < 200 then
 				-- Animate character going up and then down, falling off the screen
 				-- I know at least a dozen games that do this, time to pay homage ;)
-				Canvas.character:SetPosition(Player.posX - ((Cutscene.time - 30) / 10), Player.posY - ((Cutscene.time - 30) / 10), Player.posZ + (sin((Cutscene.time - 30) * 2) * 15) - ((Cutscene.time - 30) / 10));
+				local localTime = Cutscene.time - 30;
+				local localNormalizedTime = localTime / 170;
+				local increment = localTime / 10;
+				local bounce = sin(localNormalizedTime * PI * 1.5) * 15;
+				Canvas.character:SetPosition(
+					Player.posX - increment,
+					Player.posY - increment,
+					Player.posZ + bounce - increment
+				);
 			elseif Cutscene.time == 200 then
 				-- Animation complete, hide the character actor, stop the cutscene and open the game over UI
 				Canvas.character:Hide();
@@ -1770,7 +2001,7 @@ function Cutscene.Update()
 				Cutscene.time = Cutscene.time + 1;
 
 				if Cutscene.time <= 130 then
-					local scale = max(0.01, sin(Cutscene.time) * 1.1);
+					local scale = max(0.01, sin(rad(Cutscene.time)) * 1.1);
 					UI.Logo.scene:SetScale(scale);
 					UI.Logo.shadowScene:SetScale(scale);
 					UI.Logo.bgScene:SetScale(scale);
@@ -1778,7 +2009,7 @@ function Cutscene.Update()
 
 				if Cutscene.time <= 190 then
 					local ofs2 = max(0.7, Cutscene.time / 180);
-					local scale = sin((Cutscene.time + 30) * ofs2) * 1.4;
+					local scale = sin(rad((Cutscene.time + 30) * ofs2)) * 1.4;
 					scale = max(1, scale);
 
 					UI.Logo.TextHolder:SetScale(scale + 0.3);
@@ -1786,7 +2017,7 @@ function Cutscene.Update()
 
 				if Cutscene.time <= 320 then
 					local x, y;
-					local speed = 200;
+					local speed = 5;
 					local ofs = 50;
 					local ofs2 = 1.5;
 					for i = 1, #UI.Logo.Text[1], 1 do
@@ -1823,7 +2054,7 @@ function Cutscene.Update()
 				local offs1 = 150;
 				if Cutscene.time <= 240 + offs1 then
 					--local playSpeed = (2 - (Cutscene.time / 60)) * 2;
-					local frame = (sin(((Cutscene.time - offs1) / 2) * PI / 4) + 1) / 2;
+					local frame = (sin(rad((Cutscene.time - offs1) / 2) * PI / 4) + 1) / 2;
 					local posOffs = 2;
 					local hOffs = -1;
 
@@ -2995,8 +3226,8 @@ function Physics.PlayerCollisionUpdate()
 		if Game.GameObjects[k].active == true then
 			local definition = Game.GameObjects[k].definition;
 			local ox, oy, oz = Game.GameObjects[k].actor:GetPosition();
-			local objCol = definition.collider;
-			local oScale = definition.scale;
+			local objCol = definition.collider or { x = 0, y = 0, w = 2, h = 2 };
+			local oScale = definition.scale or 1;
 			oy = oy * oScale;
 			oz = oz * oScale;
 			
@@ -3070,7 +3301,17 @@ function Physics.PlayerCollided(gameObject)
 		Game.Over(true);
 	-- Danger 2 : Can only touch object from the top
 	elseif gameObject.definition.danger == 2 then
-
+		local px, py, pz = Canvas.character:GetPosition();
+		local objCol = gameObject.definition.collider or { x = 0, y = 0, w = 2, h = 2 };
+		if gameObject.alive == true then
+			if pz > gameObject.position.y + (objCol.h / 4) and Player.falling == true then
+				-- kill
+				gameObject.ai.kill = true;
+				gameObject.alive = false;
+			else
+				Game.Over(true);
+			end
+		end
 	end
 
 	-- Collectible 1 : Coin
@@ -3080,12 +3321,12 @@ function Physics.PlayerCollided(gameObject)
 end
 
 function Physics.CheckCollision(objectA, objectB)
-	local colliderA = objectA.definition.collider;
-	local colliderB = objectB.definition.collider;
+	local colliderA = objectA.definition.collider or { x = 0, y = 0, w = 2, h = 2 };
+	local colliderB = objectB.definition.collider or { x = 0, y = 0, w = 2, h = 2 };
 	local px, py, pz = objectA.actor:GetPosition();
 	local ox, oy, oz = objectB.actor:GetPosition();
-	local pScale = objectA.definition.scale;
-	local oScale = objectB.definition.scale;
+	local pScale = objectA.definition.scale or 1;
+	local oScale = objectB.definition.scale or 1;
 	py = py * pScale;
 	pz = pz * pScale;
 	oy = oy * oScale;
