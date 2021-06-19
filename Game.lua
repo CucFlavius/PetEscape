@@ -101,6 +101,10 @@ Cutscene.time = 0;
 Game.time = 0;
 Game.realTime = 0;
 Game.initialized = false;
+Game.matchCoins = 0;
+Environment.isTransitioning = false;
+Environment.objPosition = 0;
+Environment.totalObjects = 0;
 
 --------------------------------------
 --				Settings			--
@@ -125,7 +129,9 @@ Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character
 Player.deathZone = 31;
 Game.DEBUG_TrailCount = 40;
 LevelGenerator.objectPoolSize = 10;
-Environment.Initial = "Beach";
+Environment.Initial = "Forest";
+Environment.CurrentDefinition = Environment.Initial;
+Environment.NextDefinition = "";
 
 --------------------------------------
 --			     Data				--
@@ -175,6 +181,30 @@ function Game.CreateObjectDefinitions()
 			collider = { x = 2, y = -1, w = 2, h = 2 },
 			offset = { x = 1, y = 0.5 },
 			ai = { Initialize = AI.ProjectileInit, Update = AI.ProjectileUpdate },
+		},
+
+		["CoinStatic"] =
+		{
+			id = 916363,
+			scale = 4,
+			solid = false,
+			collectible = 1,
+			danger = 0,
+			collider = { x = 0, y = 0, w = 2, h = 2 },
+			offset = { x = 0, y = 0 },
+			ai = { Initialize = AI.CoinStaticInit, Update = AI.CoinStaticUpdate },
+		},
+
+		["CoinFloaty"] =
+		{
+			id = 916363,
+			scale = 4,
+			solid = false,
+			collectible = 1,
+			danger = 0,
+			collider = { x = 0, y = 0, w = 2, h = 2 },
+			offset = { x = 0, y = 0 },
+			ai = { Initialize = AI.CoinFloatyInit, Update = AI.CoinFloatyUpdate },
 		},
 	}
 end
@@ -230,6 +260,21 @@ Game.Puzzles =
 			--{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
 		},
 		length = 3;
+	},
+
+	["CoinTest"] = 
+	{
+		objectCount = 6,
+		objects = 
+		{ 
+			{ dName = "CoinFloaty", position = { x = 0, y = 1 } },
+			{ dName = "CoinFloaty", position = { x = 1, y = 1 } },
+			{ dName = "CoinFloaty", position = { x = 2, y = 1 } },
+			{ dName = "CoinFloaty", position = { x = 3, y = 1 } },
+			{ dName = "CoinFloaty", position = { x = 4, y = 1 } },
+			{ dName = "CoinFloaty", position = { x = 5, y = 1 } },
+		},
+		length = 6;
 	},
 
 	["1Crate"] = 
@@ -324,11 +369,15 @@ Game.FX.Symbols =
 
 Environment.Constants = 
 {
-	layer7SkyGradientID = 2903846,--621343,
+	layer7SkyGradientID = 2903846,		--621343,
 	layer6SpeedAdjust = 0.1,
 	layer6MaxSprites = 50,
 	layer4NearFogGradientID = 2903846;
 	layer3MaxActors = 50,
+	layer2BlendMaskID = 1043361,
+	layer2GroundDepth = 15,				-- frame line count
+	transitionTimeStart = 300,
+	transitionTimeDuration = 500,
 };
 
 Environment.Definitions =
@@ -338,17 +387,15 @@ Environment.Definitions =
 		Layer0 = { },
 		Layer1 = { },
 		Layer2 = { 
-			depth = 15,
 			topTexID = 188523,
 			textureScale = 2,
 			sideTexID = 188523,
-			topHighlightTexID = 3221839,
-			topHighlightColor = {120/256, 120/256, 180/256},
 			depthShadowIntensity = 1,
 			lightRimColor = {1,1,0.5,0.3},
 			depthShadowScale = 1,
 		},
 		Layer3 = { 
+			spread = 5,
 			camPos = {-50, -5, 5},						-- Camera position in 3D space
 			fogColor = {0.1, 0.1, 0.1},
 			fogFar = 50,
@@ -371,7 +418,6 @@ Environment.Definitions =
 			color = {120/256, 120/256, 180/256},
 			alpha = 0.2,
 			height = Game.height / 2,
-			texCoord = {0, 1, 0, 1},
 		},
 		Layer5 = { },
 		Layer6 = {
@@ -390,8 +436,7 @@ Environment.Definitions =
 					mask = true,
 				},
 			}
-		 },
-		 
+		 },	 
 		Layer7 = { 
 			color = {120/256, 120/256, 180/256},
 			alpha = 1,
@@ -413,12 +458,9 @@ Environment.Definitions =
 
 		-- Ground : Definitions for the ground textures
 		Layer2 = { 
-			depth = 15,							-- Ground depth in pixel frame count (this should probably remain constant, so we don't have to blend between them)
 			topTexID = 127784,					-- File ID of the texture that is displayed on the top side of the ground where the character sits
 			sideTexID = 127784,					-- File ID of the texture that is displayed on the side of the ground, facing the screen
 			textureScale = 1.6,					-- The scale of the ground texture, both top and side
-			topHighlightTexID = 3221839,		-- File ID of the texture that is overlayed over the top of the ground as an additive effect (simulating light/shadow spots)
-			topHighlightColor = {1,1,0.5,0.5},	-- Color of the texture that is overlayed on top of the ground
 			depthShadowIntensity = 1,			-- Intensity of the shadow that is drawn on the side of the ground
 			depthShadowScale = 1,				-- Scale of the depth shadow
 			lightRimColor = {1,1,0.5,0.3},		-- Intensity of the thin outline that is drawn at the intersection of the side and the top of the ground, alpha value is used for intensity
@@ -426,16 +468,17 @@ Environment.Definitions =
 
 		-- Background 3 : 3D Models that are very near the ground, but behind it
 		Layer3 = { 
+			spread = 5,
 			camPos = {-50, -5, 5},						-- Camera position in 3D space
 			fogColor = {0.1, 0.1, 0.1},
 			fogFar = 50,
 			fogNear = 10,
-			count = 40,
+			count = 50,
 			fDefs = {
 				[1] = {
 					fileID = 2323113,
-					x = { -40, 0 },
-					y = { -60, 60 },
+					x = { -40, -10 },
+					y = { -40, 40 },
 					z = { 0, 3 },
 					yaw = { -180, 180 },
 					pitch = { 0 },
@@ -450,7 +493,6 @@ Environment.Definitions =
 			color = {13/256, 47/256, 48/256},
 			alpha = 1,
 			height = Game.height / 2,
-			texCoord = {0, 1, 0, 1},
 		},
 
 		-- Background 2 : Custom background detail ( like say, ocean ? )
@@ -506,18 +548,16 @@ Environment.Definitions =
 		Layer0 = { },
 		Layer1 = { },
 		Layer2 = { 
-			depth = 15,
 			topTexID = 1534179,
 			textureScale = 4,
 			sideTexID = 1534179,
-			topHighlightTexID = 0,
-			topHighlightColor = {120/256, 120/256, 180/256},
 			depthShadowIntensity = 0.5,
 			lightRimColor = {1,1,0.5,0.4},
 			lightRimSize = 20,
 			depthShadowScale = 1,
 		},
 		Layer3 = { 
+			spread = 7,
 			camPos = {-50, -5, 5},						-- Camera position in 3D space
 			fogColor = {143/256, 217/256, 226/256},
 			fogFar = 400,
@@ -838,15 +878,15 @@ function LevelGenerator.Update()
 	for k = 1, LevelGenerator.totalObjects, 1 do
 		if Game.GameObjects[k].active == true then
 			Game.GameObjects[k].position.x = Game.GameObjects[k].position.x + (Game.speed / Game.SCENE_SYNC);
-			x1,y1,z1 = Game.GameObjects[k].actor:GetPosition();
-			Game.GameObjects[k].actor:SetPosition(x1, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
+			local x1,y1,z1 = Game.GameObjects[k].actor:GetPosition();
+			Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
 			if Game.GameObjects[k].definition.ai ~= nil then
 				Game.GameObjects[k].definition.ai.Update(Game.GameObjects[k]);
 			end
 			if Game.GameObjects[k].position.x > 10 then
 				Game.GameObjects[k].ai = nil;
 				Game.GameObjects[k].active = false;
-				Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
+				Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x * 4 / Game.GameObjects[k].definition.scale, Game.GameObjects[k].position.y);
 			end
 		end
 	end
@@ -854,13 +894,14 @@ end
 
 function LevelGenerator.SpawnPuzzle()
 	--local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
-	local puzzles = { "1Empty" };
+	-- local puzzles = { "1Empty" };
+	local puzzles = { "CoinTest", "4Empty" };
 	local pick = math.floor(Game.Random() * #puzzles) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
 	for k = 1, puzzle.objectCount, 1 do
-		local position = puzzle.objects[k].position;
-		position.x = -10;
+		local position ={ x = puzzle.objects[k].position.x - 10 - puzzle.length, y = puzzle.objects[k].position.y, z = (puzzle.objects[k].position.z or 0)  };
+		--position.x = - 10;
 		LevelGenerator.SpawnObject(puzzle.objects[k].dName, position)
 	end
 
@@ -882,6 +923,8 @@ function LevelGenerator.SpawnObject(dName, position)
 
 	Game.GameObjects[goIndex].position.x = position.x + definition.offset.x;
 	Game.GameObjects[goIndex].position.y = position.y + definition.offset.y;
+	Game.GameObjects[goIndex].position.z = position.z + (definition.offset.z or 0);
+	Game.GameObjects[goIndex].actor:SetAlpha(definition.alpha or 1);
 
 	if Game.GameObjects[goIndex].definition.ai ~= nil then
 		Game.GameObjects[goIndex].definition.ai.Initialize(Game.GameObjects[goIndex]);
@@ -912,7 +955,7 @@ function LevelGenerator.CreateNewGameObject()
 	Game.GameObjects[idx] = {
 		active = false,
 		definition = "None",
-		position = { x = 0, y = 0 },
+		position = { x = 0, y = 0, z = 0 },
 		actor = Canvas.mainScene:CreateActor("GameObject_" .. idx),
 	}
 	return idx;
@@ -923,7 +966,8 @@ function LevelGenerator.Clear()
 		Game.GameObjects[k].active = false;
 		Game.GameObjects[k].position.x = 100;
 		Game.GameObjects[k].position.y = 100;
-		Game.GameObjects[k].actor:SetPosition(0, Game.GameObjects[k].position.x, Game.GameObjects[k].position.y);
+		Game.GameObjects[k].position.z = 0;
+		Game.GameObjects[k].actor:SetPosition(Game.GameObjects[k].position.z, Game.GameObjects[k].position.x, Game.GameObjects[k].position.y);
 	end
 end
 
@@ -982,6 +1026,69 @@ function AI.ProjectileUpdate(gameObject)
 	gameObject.ai.time = gameObject.ai.time + 1;
 	x,y,z = gameObject.actor:GetPosition();
 	gameObject.position.x = gameObject.position.x + 0.1;
+end
+
+function AI.CoinStaticInit(gameObject)
+	gameObject.ai = {};
+	gameObject.ai.time = 0;
+	gameObject.ai.collect = false;		-- init
+	gameObject.ai.collecting = false;	-- update
+	gameObject.actor:SetPitch(rad(90));
+	gameObject.actor:SetParticleOverrideScale(0);
+end
+
+function AI.CoinStaticUpdate(gameObject)
+	gameObject.ai.time = gameObject.ai.time + 1;
+	if gameObject.ai.collecting == false then
+		gameObject.actor:SetRoll(rad(gameObject.ai.time * 2));
+	else
+		AI.Collect(gameObject);
+	end
+
+	if gameObject.ai.collect == true then
+		gameObject.ai.collecting = true;
+		gameObject.ai.collect = false;
+		gameObject.ai.collectingTime = gameObject.ai.time;
+	end
+end
+
+function AI.CoinFloatyInit(gameObject)
+	gameObject.ai = {};
+	gameObject.ai.time = gameObject.position.x * 10 + 20;	-- ensuring the coins sqwing at different intervals
+	gameObject.ai.collect = false;		-- init
+	gameObject.ai.collecting = false;	-- update
+	gameObject.ai.initialY = gameObject.position.y;
+	gameObject.actor:SetPitch(rad(90));
+	gameObject.actor:SetParticleOverrideScale(0);
+end
+
+function AI.CoinFloatyUpdate(gameObject)
+	gameObject.ai.time = gameObject.ai.time + 1;
+	if gameObject.ai.collecting == false then
+		gameObject.position.y = math.sin(gameObject.ai.time / 10) / 2 + gameObject.ai.initialY;
+		gameObject.actor:SetRoll(rad(gameObject.ai.time * 2));
+	else
+		AI.Collect(gameObject);
+	end
+
+	if gameObject.ai.collect == true then
+		gameObject.ai.collecting = true;
+		gameObject.ai.collect = false;
+		gameObject.ai.collectingTime = gameObject.ai.time;
+	end
+end
+
+function AI.Collect(gameObject)
+	local timer = (gameObject.ai.time - gameObject.ai.collectingTime);
+	gameObject.position.y = Game.Lerp(gameObject.position.y, 5.5, math.sin(timer / 200 * math.pi));	-- I was gonna do ease in curve for the coin collecting but gave up halfway through
+	gameObject.actor:SetAlpha(gameObject.actor:GetAlpha() - 0.03);
+	gameObject.actor:SetRoll(rad(gameObject.ai.time * 20));
+
+	-- Actually collect
+	if timer == 20 then
+		Game.matchCoins = Game.matchCoins + 1
+		print (Game.matchCoins)
+	end
 end
 
 --------------------------------------
@@ -1064,6 +1171,8 @@ function UI.Initialize()
 	UI.CreateLogo();
 	UI.CreateLogoText();
 
+	UI.CreateHUD();
+
 	-- Run first frame of the logo animation --
 	Cutscene.isPlaying = true;
 	Cutscene.current = "Logo";
@@ -1074,6 +1183,7 @@ end
 
 function UI.Animate()
 	UI.AnimateMainMenu();
+	UI.AnimateHUD();
 end
 
 function UI.CreateMainMenu()
@@ -1391,6 +1501,40 @@ function UI.MainMenu.ButtonExit()
 	end
 end
 
+function UI.CreateHUD()
+	UI.HUD = {};
+	UI.HUD.texts = {};
+
+	-- Coins text
+	UI.HUD.coins = {};
+	UI.HUD.coins.frame = CreateFrame("Frame", "UI.HUD.coins.frame", Game.mainWindow);
+	UI.HUD.coins.frame:SetPoint("TOPLEFT", Game.mainWindow, "TOPLEFT", x, y);
+	UI.HUD.coins.frame:SetSize(100, 30);
+	UI.HUD.coins.frame:SetFrameLevel(1201);
+	UI.HUD.coins.text = FX.Text.CreateWord("coin count", 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT");
+	UI.HUD.coins.shadowText = FX.Text.CreateWord("coin count", 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT");
+	UI.HUD.texts[1] = UI.HUD.coins;	-- adding to be animated
+end
+
+function UI.AnimateHUD()
+	local x, y;
+	local speed = 200;
+	local ofs = 50;
+	local ofs2 = 1.5;
+	for b = 1, #UI.HUD.texts, 1 do
+		for i = 1, #UI.HUD.texts[b].text, 1 do
+			x, y = FX.RotatePoint(0, 1, Game.realTime * speed + (i * ofs));
+			UI.HUD.texts[b].text[i].texture:SetVertexOffset(1, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(0, 0, Game.realTime * speed + (i * ofs));
+			UI.HUD.texts[b].text[i].texture:SetVertexOffset(2, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(1, 1, Game.realTime * speed + (i * ofs));
+			UI.HUD.texts[b].text[i].texture:SetVertexOffset(3, x * ofs2, y * ofs2);
+			x, y = FX.RotatePoint(1, 0, Game.realTime * speed + (i * ofs));
+			UI.HUD.texts[b].text[i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
+		end
+	end
+end
+
 --------------------------------------
 --              Sound               --
 --------------------------------------
@@ -1616,6 +1760,7 @@ function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
 end
 
 function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
+	word = string.upper(word)
 	if r == nil then r = 1 end
 	if g == nil then g = 1 end
 	if b == nil then b = 1 end
@@ -1829,105 +1974,87 @@ end
 --- Create the Ground frames.
 function Environment.CreateLayer2()
     Ground.floorFrames = {}
-	Ground.floorEffectFrames = {}
+	Ground.floorTransitionFrames = {}
 
-	local def = Environment.Definitions[Environment.Initial].Layer2;
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer2;
 
 	-- Create the floor frames --
-	for k = 1, def.depth, 1 do
+	for k = 1, Environment.Constants.layer2GroundDepth, 1 do
 		Ground.floorFrames[k] = Environment.CreateFrame("Ground.floorFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 50, def.topTexID, "REPEAT");
-		Ground.floorEffectFrames[k] = Environment.CreateFrame("Ground.floorEffectFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width, 1, "BOTTOM", 51, def.topHighlightTexID, "REPEAT", nil, def.topHighlightColor);
+		
+		-- Blend floor frame
+		Ground.floorTransitionFrames[k] = Environment.CreateFrame("Ground.floorEffectFrame_" .. k, 0, k - 1 + Ground.floorOffsetY, Game.width * 2, 1, "BOTTOM", 51, 0, "REPEAT");
+		Ground.floorTransitionFrames[k].maskTexture = Ground.floorTransitionFrames[k]:CreateMaskTexture();
+		Ground.floorTransitionFrames[k].maskTexture:SetTexture(Environment.Constants.layer2BlendMaskID, "CLAMP", "CLAMP");
+		Ground.floorTransitionFrames[k].maskTexture:SetAllPoints(Ground.floorTransitionFrames[k]);
+		Ground.floorTransitionFrames[k].texture:AddMaskTexture(Ground.floorTransitionFrames[k].maskTexture);
+		Ground.floorTransitionFrames[k]:Hide();
 	end	
 
-	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 50, def.sideTexID, "REPEAT")
-	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity);
-	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 51, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity, "BLEND");
-	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, def.depth + (def.lightRimSize or 0), "BOTTOM", 51, 621343, "CLAMP", {0,1,0,1}, def.lightRimColor, 1, "ADD");
-	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - def.depth - (def.lightRimSize or 0), Game.width, def.depth + (def.lightRimSize or 0), "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, def.lightRimColor, 1, "ADD");
-	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + def.depth, "BOTTOM", 51, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, 1, "ADD");
+	Ground.fgFloorFrame = Environment.CreateFrame("Ground.fgFloorFrame", 0, 0, Game.width, Ground.floorOffsetY, "BOTTOM", 51, def.sideTexID, "REPEAT")
+	Ground.depthShadow = Environment.CreateFrame("Ground.depthShadow", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 52, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity);
+	Ground.depthShadow2 = Environment.CreateFrame("Ground.depthShadow2", 0, 0, Game.width, Ground.floorOffsetY * def.depthShadowScale, "BOTTOM", 52, 131963, "CLAMP", {1,0,1,0}, nil, def.depthShadowIntensity, "BLEND");
+	Ground.rimLightTop = Environment.CreateFrame("Ground.rimLightTop", 0, Ground.floorOffsetY, Game.width, Environment.Constants.layer2GroundDepth + (def.lightRimSize or 0), "BOTTOM", 52, 621343, "CLAMP", {0,1,0,1}, def.lightRimColor, 1, "ADD");
+	Ground.rimLightSide = Environment.CreateFrame("Ground.rimLightSide", 0, Ground.floorOffsetY - Environment.Constants.layer2GroundDepth - (def.lightRimSize or 0), Game.width, Environment.Constants.layer2GroundDepth + (def.lightRimSize or 0), "BOTTOM", 52, 621343, "CLAMP", {1,0,1,0}, def.lightRimColor, 1, "ADD");
+	Ground.floorLight = Environment.CreateFrame("Ground.floorLight", 0, 0, Game.width, Ground.floorOffsetY + Environment.Constants.layer2GroundDepth, "BOTTOM", 52, 621343, "CLAMP", {1,0,1,0}, {1,1,0.5,0.05}, 1, "ADD");
 
+	-- Blend side frame
+	Ground.fgFloorBlendFrame = Environment.CreateFrame("Ground.fgFloorFrame", Game.width * 2, 0, Game.width * 2, Ground.floorOffsetY, "BOTTOM", 51, def.sideTexID, "REPEAT");
+	Ground.fgFloorBlendFrame.maskTexture = Ground.fgFloorBlendFrame:CreateMaskTexture();
+	Ground.fgFloorBlendFrame.maskTexture:SetTexture(Environment.Constants.layer2BlendMaskID, "CLAMP", "CLAMP");
+	Ground.fgFloorBlendFrame.maskTexture:SetAllPoints(Ground.fgFloorBlendFrame);
+	Ground.fgFloorBlendFrame.texture:AddMaskTexture(Ground.fgFloorBlendFrame.maskTexture);
+	
+	Ground.fgFloorBlendFrame:Hide();
+
+	-- Top frames --
+	local firstScale = 1;
+	local firstScaleY = 1;
+	for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+		local diff = Environment.Constants.layer2GroundDepth * 3;
+		local K = (diff / ((diff - k) + 15)) * 4;
+		local scale = (K * 0.5) * def.textureScale;
+		--Ground.floorFrames[k].texture:SetTexCoord(-(scale / 3), scale - (scale / 3), scale, scale - ((1 / K) / 8));
+		Ground.floorTransitionFrames[k].texture:SetTexCoord(-(scale), scale - (scale), scale, scale - ((1 / K) / 8));
+		if k == 1 then
+			firstScale = scale;
+			firstScaleY = ((1 / K) / 8);
+		end
+	end
+
+	-- Side frame --
+	Ground.fgFloorBlendFrame.texture:SetTexCoord(
+		- (firstScale / 3),
+		firstScale - (firstScale / 3),
+		firstScale - firstScaleY,
+		def.textureScale * 1.2
+	);
 end
 
 --- Create Background 3D scene
 function Environment.CreateLayer3()
-	local total = Environment.Constants.layer3MaxActors;
-	local def = Environment.Definitions[Environment.Initial].Layer3;
-	if def.count > total then def.count = total end
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer3;
+	Environment.l3Spread = def.spread;
+	if def.count > Environment.Constants.layer3MaxActors then def.count = Environment.Constants.layer3MaxActors end
 
 	Environment.BGScene = CreateFrame("ModelScene", "Environment.BGScene", Canvas.parentFrame);
 	Environment.BGScene:SetPoint("CENTER", Canvas.parentFrame, "CENTER", 0, 0);
     Environment.BGScene:SetSize(Game.width, Game.height);
-    Environment.BGScene:SetCameraPosition(def.camPos[1], def.camPos[2], def.camPos[3]);
 	Environment.BGScene:SetFrameLevel(10);
+    Environment.BGScene:SetCameraPosition(def.camPos[1], def.camPos[2], def.camPos[3]);
 	Environment.BGScene:SetFogColor(def.fogColor[1], def.fogColor[2], def.fogColor[3]);
 	Environment.BGScene:SetFogFar(def.fogFar);
 	Environment.BGScene:SetFogNear(def.fogNear);
 	Environment.BGScene:SetCameraFarClip(1000);
 
 	Environment.actors = {};
-	for k = 1, total, 1 do
-		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
-		local fdef = def.fDefs[pick];
 
-		Environment.actors[k] = {};
-		Environment.actors[k].frame = Environment.BGScene:CreateActor("BGScene.actor_" .. k);
-		Environment.actors[k].frame:SetModelByFileID(fdef.fileID);
-		Environment.actors[k].frame:SetAnimation(Zee.animIndex[fdef.animation or "Stand"], 0, 1);
-
-		-- pos
-		if #fdef.x == 1 then
-			Environment.actors[k].positionX = fdef.x[1];
-		else
-			Environment.actors[k].positionX = Game.Lerp(fdef.x[1], fdef.x[2], Game.Random());
-		end
-		if #fdef.y == 1 then
-			Environment.actors[k].positionY = fdef.y[1];
-		else
-			Environment.actors[k].positionY = Game.Lerp(fdef.y[1], fdef.y[2], Game.Random());
-		end
-		if #fdef.z == 1 then
-			Environment.actors[k].positionZ = fdef.z[1];
-		else
-			Environment.actors[k].positionZ = Game.Lerp(fdef.z[1], fdef.z[2], Game.Random());
-		end
-
-		-- rot
-		if #fdef.yaw == 1 then
-			Environment.actors[k].frame:SetYaw(rad(fdef.yaw[1]));
-		else
-			Environment.actors[k].frame:SetYaw(rad(Game.Lerp(fdef.yaw[1], fdef.yaw[2], Game.Random())));
-		end
-		if #fdef.pitch == 1 then
-			Environment.actors[k].frame:SetPitch(rad(fdef.pitch[1]));
-		else
-			Environment.actors[k].frame:SetPitch(rad(Game.Lerp(fdef.pitch[1], fdef.pitch[2], Game.Random())));
-		end
-		if #fdef.roll == 1 then
-			Environment.actors[k].frame:SetRoll(rad(fdef.roll[1]));
-		else
-			Environment.actors[k].frame:SetRoll(rad(Game.Lerp(fdef.roll[1], fdef.roll[2], Game.Random())));
-		end
-
-		-- scale
-		if #fdef.scale == 1 then
-			Environment.actors[k].scale = fdef.scale[1];
-			Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
-		else
-			Environment.actors[k].scale = Game.Lerp(fdef.scale[1], fdef.scale[2], Game.Random());
-			Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
-		end
-
-		if k <= def.count then
-			Environment.actors[k].frame:Show();
-		else
-			Environment.actors[k].frame:Hide();
-		end
-	end
+	Environment.PreSapwn();
 end
 
 --- Create Gradient - Near Fog layer
 function Environment.CreateLayer4()
-	local def = Environment.Definitions[Environment.Initial].Layer4;
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer4;
 
 	Environment.FogNear = CreateFrame("Frame", "Environment.FogNear", Canvas.frame);
 	Environment.FogNear:SetSize(Game.width, def.height);
@@ -1946,7 +2073,8 @@ function Environment.CreateLayer4()
 	Environment.FogNear.maskTexture:SetPoint("TOPLEFT", 0, 0);
 	--Environment.FogNear.maskTexture:SetTexCoord(def.texCoord[1], def.texCoord[2], def.texCoord[3], def.texCoord[4]);
 	
-	Environment.FogNear.texture:SetColorTexture(def.color[1], def.color[2], def.color[3], def.alpha);
+	Environment.FogNear.texture:SetColorTexture(1, 1, 1, 1);
+	Environment.FogNear.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
 	Environment.FogNear.texture:AddMaskTexture(Environment.FogNear.maskTexture);
 end
 
@@ -1957,17 +2085,18 @@ end
 
 --- Create the distance layer that contains 2D silhouettes or bilboards.
 function Environment.CreateLayer6()
-	local total = Environment.Constants.layer6MaxSprites;
 	Environment.Layer6Frames = {};
-	local def = Environment.Definitions[Environment.Initial].Layer6;
-	if def.count > total then def.count = total end
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer6;
 	local zDepth = def.zDepth or 7;
 	local blend = def.blend or nil;
-	for i = 1, total, 1 do
+	for i = 1, Environment.Constants.layer6MaxSprites, 1 do
 		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
 		local fdef = def.fDefs[pick];
 
 		Environment.Layer6Frames[i] = {};
+		Environment.Layer6Frames[i].transition = false;
+		Environment.Layer6Frames[i].alpha = 1;
+
 		if fdef.x[1] == fdef.x[2] then
 			Environment.Layer6Frames[i].x = fdef.x[1];
 		else
@@ -2020,7 +2149,7 @@ end
 
 --- Create the Skybox atmosphere gradient.
 function Environment.CreateLayer7()
-	local def = Environment.Definitions[Environment.Initial].Layer7;
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer7;
 	local zDepth = def.zDepth or 6;
 	Environment.SkyGradient = CreateFrame("Frame", "Environment.SkyGradient", Canvas.frame);
 	Environment.SkyGradient:SetPoint("BOTTOM", 0, Ground.floorOffsetY + (def.offsetY or 0));
@@ -2036,28 +2165,32 @@ function Environment.CreateLayer7()
 	Environment.SkyGradient.maskTexture:SetTexture(Environment.Constants.layer7SkyGradientID, "CLAMP", "CLAMP");
 	Environment.SkyGradient.maskTexture:SetSize(Game.width, def.height);
 	Environment.SkyGradient.maskTexture:SetPoint("TOPLEFT", 0, 0);
-	
-	Environment.SkyGradient.texture:SetColorTexture(def.color[1], def.color[2], def.color[3], def.alpha);
+
+	Environment.SkyGradient.texture:SetColorTexture(1, 1, 1, 1);
+	Environment.SkyGradient.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], def.alpha);
 	Environment.SkyGradient.texture:AddMaskTexture(Environment.SkyGradient.maskTexture);
 
 end
 
 --- Create the Skybox Color frame.
 function Environment.CreateLayer8()
-	local def = Environment.Definitions[Environment.Initial].Layer8;
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer8;
 
 	Environment.SkyColor = CreateFrame("Frame", "Environment.SkyColor", Canvas.frame);
 	Environment.SkyColor:SetWidth(Game.width);
 	Environment.SkyColor:SetHeight(Game.height);
 	Environment.SkyColor:SetPoint("BOTTOM", 0, 0);
 	Environment.SkyColor.texture = Environment.SkyColor:CreateTexture("Environment.SkyColor_texture","BACKGROUND")
-	Environment.SkyColor.texture:SetColorTexture(def.color[1], def.color[2], def.color[3]);
+	Environment.SkyColor.texture:SetColorTexture(1, 1, 1, 1);
+	Environment.SkyColor.texture:SetVertexColor(def.color[1], def.color[2], def.color[3], 1);
 	Environment.SkyColor.texture:SetAllPoints(Environment.SkyColor);
 	Environment.SkyColor:SetFrameLevel(5);
 end
 
 --- Update environment, runs every frame.
 function Environment.Update()
+-- print (Environment.totalObjects)
+
 	Environment.UpdateLayer0();
 	Environment.UpdateLayer1();
 	Environment.UpdateLayer2();
@@ -2067,6 +2200,203 @@ function Environment.Update()
 	Environment.UpdateLayer6();
 	Environment.UpdateLayer7();
 	Environment.UpdateLayer8();
+
+	if Environment.isTransitioning == true then
+		local cDefL2 = Environment.Definitions[Environment.CurrentDefinition].Layer2;
+		local nDefL2 = Environment.Definitions[Environment.NextDefinition].Layer2;
+		local cDefL3 = Environment.Definitions[Environment.CurrentDefinition].Layer3;
+		local nDefL3 = Environment.Definitions[Environment.NextDefinition].Layer3;
+		local cDefL4 = Environment.Definitions[Environment.CurrentDefinition].Layer4;
+		local nDefL4 = Environment.Definitions[Environment.NextDefinition].Layer4;
+		local cDefL7 = Environment.Definitions[Environment.CurrentDefinition].Layer7;
+		local nDefL7 = Environment.Definitions[Environment.NextDefinition].Layer7;
+		local cDefL8 = Environment.Definitions[Environment.CurrentDefinition].Layer8;
+		local nDefL8 = Environment.Definitions[Environment.NextDefinition].Layer8;
+		Environment.transitionTime = Environment.transitionTime + 1;
+
+		if Environment.transitionTime >= 1000 then
+			Environment.isTransitioning = false;
+			Ground.fgFloorBlendFrame:Hide();
+			for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+				Ground.floorTransitionFrames[k]:Hide();
+			end
+
+			Environment.CurrentDefinition = Environment.NextDefinition;
+		end
+
+		if Environment.transitionTime >= Environment.Constants.transitionTimeStart and Environment.transitionTime <= Environment.Constants.transitionTimeStart + Environment.Constants.transitionTimeDuration then
+			local time = (Environment.transitionTime - Environment.Constants.transitionTimeStart) / Environment.Constants.transitionTimeDuration;
+
+			-- Layer 2 transition
+			local depthShadowIntensity = Game.Lerp(cDefL2.depthShadowIntensity, nDefL2.depthShadowIntensity, time);
+			local depthShadowScale = Game.Lerp(cDefL2.depthShadowScale, nDefL2.depthShadowScale, time);
+			Ground.depthShadow:SetAlpha(depthShadowIntensity);
+			Ground.depthShadow2:SetAlpha(depthShadowIntensity);
+			Ground.depthShadow:SetSize(Game.width, Ground.floorOffsetY * depthShadowScale);
+			Ground.depthShadow2:SetSize(Game.width, Ground.floorOffsetY * depthShadowScale);
+			local lightRimColorR = Game.Lerp(cDefL2.lightRimColor[1], nDefL2.lightRimColor[1], time);
+			local lightRimColorG = Game.Lerp(cDefL2.lightRimColor[2], nDefL2.lightRimColor[2], time);
+			local lightRimColorB = Game.Lerp(cDefL2.lightRimColor[3], nDefL2.lightRimColor[3], time);
+			local lightRimColorA = Game.Lerp(cDefL2.lightRimColor[4], nDefL2.lightRimColor[4], time);
+			Ground.rimLightTop.texture:SetVertexColor(lightRimColorR, lightRimColorG, lightRimColorB, lightRimColorA);
+			Ground.rimLightSide.texture:SetVertexColor(lightRimColorR, lightRimColorG, lightRimColorB, lightRimColorA);
+			local lightRimSize = Game.Lerp(cDefL2.lightRimSize or 0, nDefL2.lightRimSize or 0, time);
+			Ground.rimLightTop:SetSize(Game.width, Environment.Constants.layer2GroundDepth + lightRimSize);
+			Ground.rimLightSide:SetSize(Game.width, Environment.Constants.layer2GroundDepth + lightRimSize);
+			Ground.rimLightSide:ClearAllPoints();
+			Ground.rimLightSide:SetPoint("BOTTOM", 0, Ground.floorOffsetY - Environment.Constants.layer2GroundDepth - lightRimSize);
+
+			-- Layer 3 transition
+			local camPosX = Game.Lerp(cDefL3.camPos[1], nDefL3.camPos[1], time);
+			local camPosY = Game.Lerp(cDefL3.camPos[2], nDefL3.camPos[2], time);
+			local camPosZ = Game.Lerp(cDefL3.camPos[3], nDefL3.camPos[3], time);
+			Environment.BGScene:SetCameraPosition(camPosX, camPosY, camPosZ);
+			local fogR = Game.Lerp(cDefL3.fogColor[1], nDefL3.fogColor[1], time);
+			local fogG = Game.Lerp(cDefL3.fogColor[2], nDefL3.fogColor[2], time);
+			local fogB = Game.Lerp(cDefL3.fogColor[3], nDefL3.fogColor[3], time);
+			Environment.BGScene:SetFogColor(fogR, fogG, fogB);
+			local fogFar = Game.Lerp(cDefL3.fogFar, nDefL3.fogFar, time);
+			Environment.BGScene:SetFogFar(fogFar);
+			local fogNear = Game.Lerp(cDefL3.fogNear, nDefL3.fogNear, time);
+			Environment.BGScene:SetFogNear(fogNear);
+			
+			-- Layer 4 transition
+			local l4height = Game.Lerp(cDefL4.height, nDefL4.height, time);
+			Environment.FogNear:SetSize(Game.width, l4height);
+			Environment.FogNear.maskTexture:SetSize(Game.width, l4height);
+			
+			local l4offsetY = Game.Lerp(Ground.floorOffsetY + (cDefL4.offsetY or 0), Ground.floorOffsetY + (nDefL4.offsetY or 0), time);
+			Environment.FogNear:SetPoint("BOTTOM", 0, l4offsetY);
+			local l4colorR = Game.Lerp(cDefL4.color[1], nDefL4.color[1], time);
+			local l4colorG = Game.Lerp(cDefL4.color[2], nDefL4.color[2], time);
+			local l4colorB = Game.Lerp(cDefL4.color[3], nDefL4.color[3], time);
+			local l4alpha = Game.Lerp(cDefL4.alpha, nDefL4.alpha, time);
+			Environment.FogNear.texture:SetVertexColor(l4colorR, l4colorG, l4colorB, l4alpha);
+
+			-- Layer 7 transition
+			local l7height = Game.Lerp(cDefL7.height, nDefL7.height, time);
+			Environment.SkyGradient:SetSize(Game.width, l7height);
+			Environment.SkyGradient.maskTexture:SetSize(Game.width, l7height);
+			local l7offsetY = Game.Lerp(Ground.floorOffsetY + (cDefL7.offsetY or 0), Ground.floorOffsetY + (nDefL7.offsetY or 0), time);
+			Environment.SkyGradient:SetPoint("BOTTOM", 0, l7offsetY);
+			local l7colorR = Game.Lerp(cDefL7.color[1], nDefL7.color[1], time);
+			local l7colorG = Game.Lerp(cDefL7.color[2], nDefL7.color[2], time);
+			local l7colorB = Game.Lerp(cDefL7.color[3], nDefL7.color[3], time);
+			local l7alpha = Game.Lerp(cDefL7.alpha, nDefL7.alpha, time);
+			Environment.SkyGradient.texture:SetVertexColor(l7colorR, l7colorG, l7colorB, l7alpha);
+
+			-- Layer 8 transition
+			local l8colorR = Game.Lerp(cDefL8.color[1], nDefL8.color[1], time);
+			local l8colorG = Game.Lerp(cDefL8.color[2], nDefL8.color[2], time);
+			local l8colorB = Game.Lerp(cDefL8.color[3], nDefL8.color[3], time);
+			Environment.SkyColor.texture:SetVertexColor(l8colorR, l8colorG, l8colorB, 1);
+		end
+
+		if Environment.transitionTime == 200 then
+			Ground.fgFloorBlendFrame:Show();
+			Ground.fgFloorBlendFrame.texture:SetTexture(nDefL2.sideTexID, "REPEAT", "REPEAT");
+			for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+				Ground.floorTransitionFrames[k]:Show();
+				Ground.floorTransitionFrames[k].texture:SetTexture(nDefL2.sideTexID, "REPEAT", "REPEAT");
+			end
+		end
+
+		if Environment.transitionTime >= 200 then
+			-- blend layer 2
+			Ground.fgFloorBlendFrame:ClearAllPoints(); 
+			local xOffset =  (Game.width * 1.2) - ((Environment.transitionTime - 200) * 1.3 * Game.speed);
+			Ground.fgFloorBlendFrame:SetPoint("BOTTOM", xOffset, 0);
+			for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+				Ground.floorTransitionFrames[k]:SetPoint("BOTTOM", xOffset, k - 1 + Ground.floorOffsetY);
+			end
+		end
+		
+		if Environment.transitionTime < 600 and Environment.transitionTime >= 200 then
+			-- Layer 6 transition
+			for i = 1, Environment.Constants.layer6MaxSprites, 1 do
+				if Environment.Layer6Frames[i].alpha > 0 then
+					Environment.Layer6Frames[i].alpha = Environment.Layer6Frames[i].alpha - 0.003;
+					Environment.Layer6Frames[i].frame:SetAlpha(Environment.Layer6Frames[i].alpha);
+				end
+			end
+		end
+
+		if Environment.transitionTime > 600 then
+			-- Layer 6 transition 2
+			for i = 1, Environment.Constants.layer6MaxSprites, 1 do
+				if Environment.Layer6Frames[i].alpha < 1 then
+					Environment.Layer6Frames[i].alpha = Environment.Layer6Frames[i].alpha + 0.003;
+					Environment.Layer6Frames[i].frame:SetAlpha(Environment.Layer6Frames[i].alpha);
+				end
+			end
+		end
+
+		if Environment.transitionTime == 600 then
+			for i = 1, Environment.Constants.layer6MaxSprites, 1 do
+				local def = Environment.Definitions[Environment.NextDefinition].Layer6;
+				local pick = math.floor(Game.Random() * #def.fDefs) + 1;
+				local fdef = def.fDefs[pick];
+
+				--Environment.Layer6Frames[i].transition = false;
+				
+				if fdef.x[1] == fdef.x[2] then
+					Environment.Layer6Frames[i].x = fdef.x[1];
+				else
+					Environment.Layer6Frames[i].x = Game.Lerp(fdef.x[1], fdef.x[2], Game.Random());
+				end
+				if fdef.y[1] == fdef.y[2] then
+					Environment.Layer6Frames[i].y = fdef.y[1];
+				else
+					Environment.Layer6Frames[i].y = Game.Lerp(fdef.y[1], fdef.y[2], Game.Random());
+				end
+				if fdef.proportional == true then
+					local val = Game.Lerp(fdef.w[1], fdef.w[2], Game.Random());
+					Environment.Layer6Frames[i].w = val;
+					Environment.Layer6Frames[i].h = val;
+				else
+					if fdef.w[1] == fdef.w[2] then
+						Environment.Layer6Frames[i].w = fdef.w[1];
+					else
+						Environment.Layer6Frames[i].w = Game.Lerp(fdef.w[1], fdef.w[2], Game.Random());
+					end
+					if fdef.h[1] == fdef.h[2] then
+						Environment.Layer6Frames[i].h = fdef.h[1];
+					else
+						Environment.Layer6Frames[i].h = Game.Lerp(fdef.h[1], fdef.h[2], Game.Random());
+					end
+				end
+				if fdef.speed[1] == fdef.speed[2] then
+					Environment.Layer6Frames[i].speed = fdef.speed[1];
+				else
+					Environment.Layer6Frames[i].speed = Game.Lerp(fdef.speed[1], fdef.speed[2], Game.Random());
+				end
+		
+				Environment.ChangeSilhouette(
+					Environment.Layer6Frames[i].frame,
+					"Environment.Layer6Frames[" .. i .. "]",
+					Environment.Layer6Frames[i].x, Environment.Layer6Frames[i].y,
+					Environment.Layer6Frames[i].w, Environment.Layer6Frames[i].h, "CENTER", def.zDepth or 7,
+					fdef.fileID, "CLAMP", fdef.texCoord or {0, 1, 0, 1},
+					{Game.Lerp(fdef.color[1][1], fdef.color[2][1], Game.Random()), Game.Lerp(fdef.color[1][2], fdef.color[2][2], Game.Random()), Game.Lerp(fdef.color[1][3], fdef.color[2][3], Game.Random())},
+					nil, def.blend, def.mask
+				);
+
+				if i <= def.count then
+					Environment.Layer6Frames[i].frame:Show();
+				else
+					Environment.Layer6Frames[i].frame:Hide();
+				end
+			end
+		end
+
+		if Environment.transitionTime == 300 + 200 then
+			Ground.fgFloorFrame.texture:SetTexture(nDefL2.sideTexID, "REPEAT", "REPEAT");
+
+			for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+				Ground.floorFrames[k].texture:SetTexture(nDefL2.topTexID, "REPEAT", "REPEAT");
+			end
+		end
+	end
 end
 
 -- Update foreground occluders
@@ -2081,19 +2411,23 @@ end
 
 --- Update the Ground frames.
 function Environment.UpdateLayer2()
-	local def = Environment.Definitions[Environment.Initial].Layer2;
+	local def = Environment.Definitions[Environment.CurrentDefinition].Layer2;
+	
+	if Environment.isTransitioning and Environment.transitionTime > 500 then
+		def = Environment.Definitions[Environment.NextDefinition].Layer2;
+	end
 
 	-- Top frames --
 	local offset = (Game.time * 0.15625 * Game.speed * def.textureScale);
 	local firstScale = 1;
 	local firstScaleY = 1;
 	local kOfs = 15;
-	for k = 1, def.depth, 1 do
-		local diff = def.depth * 3;
+	for k = 1, Environment.Constants.layer2GroundDepth, 1 do
+		local diff = Environment.Constants.layer2GroundDepth * 3;
 		local K = (diff / ((diff - k) + kOfs)) * 4;
 		local scale = (K * 0.5) * def.textureScale;
 		Ground.floorFrames[k].texture:SetTexCoord(offset - (scale / 3), offset + scale - (scale / 3), scale, scale - ((1 / K) / 8));
-		Ground.floorEffectFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8));
+		--Ground.floorTransitionFrames[k].texture:SetTexCoord(offset - (scale), offset + scale - (scale), scale, scale - ((1 / K) / 8));
 		if k == 1 then
 			firstScale = scale;
 			firstScaleY = ((1 / K) / 8);
@@ -2111,13 +2445,142 @@ end
 
 --- Update Background 3D scene
 function Environment.UpdateLayer3()
-	for k = 1, Environment.Constants.layer3MaxActors, 1 do
-		Environment.actors[k].positionY = Environment.actors[k].positionY + ((Game.speed / 50) / Environment.actors[k].scale);
-		Environment.actors[k].frame:SetPosition(Environment.actors[k].positionX, Environment.actors[k].positionY, Environment.actors[k].positionZ);
-		if Environment.actors[k].positionY >= 50 / Environment.actors[k].scale then
-			Environment.actors[k].positionY = -50 / Environment.actors[k].scale;
+
+	-- determine if new environment model should be spawned
+	if Game.travelledDistance >= Environment.objPosition + Environment.l3Spread then
+		Environment.objPosition = Game.travelledDistance;
+		Environment.SpawnObject(false);
+	end
+
+	-- loop through all the objects, and update them
+	for k = 1, Environment.totalObjects, 1 do
+		if Environment.actors[k].active == true then
+
+			-- move
+			Environment.actors[k].positionY = Environment.actors[k].positionY + ((Game.speed / 50) / Environment.actors[k].scale);
+
+			--print (Environment.actors[k].positionY)
+			-- reset 
+			if Environment.actors[k].positionY * Environment.actors[k].scale > 5 then
+				-- Environment.actors[k].active = false;
+				-- Environment.actors[k].frame:Hide()
+				-- Environment.actors[k].positionY = -50 / Environment.actors[k].scale;
+			end
+
+			if Environment.actors[k].positionY * Environment.actors[k].scale > 20 then
+				Environment.actors[k].active = false;
+				Environment.actors[k].frame:Hide()
+			end
+
+			Environment.actors[k].frame:SetPosition(Environment.actors[k].positionX, Environment.actors[k].positionY, Environment.actors[k].positionZ);
 		end
 	end
+end
+
+function Environment.PreSapwn()
+	for k = 1, 20, 1 do
+		Environment.SpawnObject(true)
+	end
+end
+
+function Environment.SpawnObject(preSpawn)
+
+	local defName = Environment.CurrentDefinition;
+	if Environment.isTransitioning == true then
+		defName = Environment.NextDefinition;
+	end
+	local nDefL3 = Environment.Definitions[defName].Layer3;
+	local pick = math.floor(Game.Random() * #nDefL3.fDefs) + 1;
+	local fdef = nDefL3.fDefs[pick];
+
+	local k = Environment.GetAvailableGameObject();
+	Environment.actors[k].active = true;
+	Environment.actors[k].frame:Show();
+	Environment.actors[k].frame:SetModelByFileID(fdef.fileID);
+	Environment.actors[k].frame:SetAnimation(Zee.animIndex[fdef.animation or "Stand"], 0, 1);
+	
+	-- pos
+	if #fdef.x == 1 then
+		Environment.actors[k].positionX = fdef.x[1];
+	else
+		Environment.actors[k].positionX = Game.Lerp(fdef.x[1], fdef.x[2], Game.Random());
+	end
+
+	if preSpawn then
+		if #fdef.y == 1 then
+			Environment.actors[k].positionY = fdef.y[1];
+		else
+			Environment.actors[k].positionY = Game.Lerp(fdef.y[1], fdef.y[2], Game.Random());
+		end
+	else
+		Environment.actors[k].positionY = -40;
+	end
+
+	if #fdef.z == 1 then
+		Environment.actors[k].positionZ = fdef.z[1];
+	else
+		Environment.actors[k].positionZ = Game.Lerp(fdef.z[1], fdef.z[2], Game.Random());
+	end
+	
+	-- rot
+	if #fdef.yaw == 1 then
+		Environment.actors[k].frame:SetYaw(rad(fdef.yaw[1]));
+	else
+		Environment.actors[k].frame:SetYaw(rad(Game.Lerp(fdef.yaw[1], fdef.yaw[2], Game.Random())));
+	end
+	if #fdef.pitch == 1 then
+		Environment.actors[k].frame:SetPitch(rad(fdef.pitch[1]));
+	else
+		Environment.actors[k].frame:SetPitch(rad(Game.Lerp(fdef.pitch[1], fdef.pitch[2], Game.Random())));
+	end
+	if #fdef.roll == 1 then
+		Environment.actors[k].frame:SetRoll(rad(fdef.roll[1]));
+	else
+		Environment.actors[k].frame:SetRoll(rad(Game.Lerp(fdef.roll[1], fdef.roll[2], Game.Random())));
+	end
+
+	-- scale
+	if #fdef.scale == 1 then
+		Environment.actors[k].scale = fdef.scale[1];
+		Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
+	else
+		Environment.actors[k].scale = Game.Lerp(fdef.scale[1], fdef.scale[2], Game.Random());
+		Environment.actors[k].frame:SetScale(Environment.actors[k].scale);
+	end
+
+
+end
+
+function Environment.GetAvailableGameObject()
+	local firstAvailable = -1;
+	for k = 1, Environment.totalObjects, 1 do
+		if firstAvailable == -1 then
+			if Environment.actors[k].active == false then
+				firstAvailable = k;
+				break;
+			end
+		end
+	end
+
+	if firstAvailable ~= -1 then
+		return firstAvailable;
+	else
+		return Environment.CreateNewGameObject();
+	end
+end
+
+function Environment.CreateNewGameObject()
+	Environment.totalObjects = Environment.totalObjects + 1;
+	local idx = Environment.totalObjects;
+	Environment.actors[idx] = {
+		active = false,
+		scale = 1,
+		positionX = 0,
+		positionY = 0,
+		positionZ = 0,
+		frame = Environment.BGScene:CreateActor("BGScene.actor_" .. idx);
+	}
+	return idx;
 end
 
 --- Update Gradient - Near Fog layer
@@ -2136,6 +2599,7 @@ function Environment.UpdateLayer6()
 	for i = 1, #Environment.Layer6Frames, 1 do
 		Environment.Layer6Frames[i].x = Environment.Layer6Frames[i].x - (Environment.Layer6Frames[i].speed * Environment.Constants.layer6SpeedAdjust * Game.speed);
 		if Environment.Layer6Frames[i].x + (Environment.Layer6Frames[i].w / 2) < -Game.width / 2 then
+			-- respawn
 			Environment.Layer6Frames[i].x = Game.width / 2 + Environment.Layer6Frames[i].w / 2;
 		end
 		Environment.Layer6Frames[i].frame:ClearAllPoints();
@@ -2229,21 +2693,69 @@ function Environment.CreateSilhouette(name, x, y, w, h, point, frameLevel, textu
 		f:SetAlpha(alpha);
 	end
 	f:SetFrameLevel(frameLevel);
-	f.maskTexture =  f:CreateMaskTexture();
-	f.maskTexture:SetTexture(textureID, "CLAMP", "CLAMP");
-	f.maskTexture:SetSize(w, h);
-	f.maskTexture:SetPoint("TOPLEFT", 0, 0);
+	-- f.maskTexture =  f:CreateMaskTexture();
+	-- f.maskTexture:SetTexture(textureID, "CLAMP", "CLAMP");
+	-- f.maskTexture:SetSize(w, h);
+	-- f.maskTexture:SetPoint("TOPLEFT", 0, 0);
 	
 
-	if mask == true then
-		f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
-		f.texture:AddMaskTexture(f.maskTexture);
-	else
+	-- if mask == true then
+	-- 	f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
+	-- 	f.texture:AddMaskTexture(f.maskTexture);
+	-- else
 		f.texture:SetTexture(textureID, wrap, wrap);
 		f.texture:SetVertexColor(color[1], color[2], color[3], color[4]);
-	end
+	-- end
 
 	return f;
+end
+
+function Environment.ChangeSilhouette(f, name, x, y, w, h, point, frameLevel, textureID, wrap, texCoord, color, alpha, blendMode, mask)
+	if wrap == nil then wrap = "REPEAT" end
+
+	f:SetSize(w, h);
+	f:SetPoint(point, x, y);
+
+	if texCoord ~= nil then 
+		f.texture:SetTexCoord(texCoord[1], texCoord[2], texCoord[3], texCoord[4]);
+	end
+	if blendMode ~= nil then
+		f.texture:SetBlendMode(blendMode);
+	end
+	if alpha ~= nil then
+		f:SetAlpha(alpha);
+	end
+	f:SetFrameLevel(frameLevel);
+	
+	-- f.maskTexture =  f:CreateMaskTexture();
+	-- f.maskTexture:SetTexture(textureID, "CLAMP", "CLAMP");
+	-- f.maskTexture:SetSize(w, h);
+	-- f.maskTexture:SetPoint("TOPLEFT", 0, 0);
+	
+
+	-- if mask == true then
+	-- 	f.texture:SetColorTexture(color[1], color[2], color[3], color[4]);
+	-- 	f.texture:AddMaskTexture(f.maskTexture);
+	-- else
+		f.texture:SetTexture(textureID, wrap, wrap);
+		f.texture:SetVertexColor(color[1], color[2], color[3], color[4]);
+	-- end
+
+	return f;
+end
+
+function Environment.Blend(defName)
+	if Environment.isTransitioning == true then return end
+	Environment.NextDefinition = defName;
+	Environment.isTransitioning = true;
+	Environment.transitionTime = 0;
+	local nDefL3 = Environment.Definitions[defName].Layer3;
+	Environment.l3Spread = nDefL3.spread or 5;
+
+	-- for i = 1, #Environment.Layer6Frames, 1 do
+	-- 	Environment.Layer6Frames[i].transition = true;
+	-- end
+	
 end
 
 --------------------------------------
@@ -2333,6 +2845,8 @@ function Physics.FrontCheck(px, py, pw, ph, ox, oy, ow, oh)
 end
 
 function Physics.PlayerCollided(gameObject)
+	gameObject.definition.danger = gameObject.definition.danger or 0
+	gameObject.definition.collectible = gameObject.definition.collectible or 0
 	-- Danger 0 : Can be in contact with object anywhere
 	if gameObject.definition.danger == 0 then
 
@@ -2342,6 +2856,11 @@ function Physics.PlayerCollided(gameObject)
 	-- Danger 2 : Can only touch object from the top
 	elseif gameObject.definition.danger == 2 then
 
+	end
+
+	-- Collectible 1 : Coin
+	if gameObject.definition.collectible == 1 then
+		gameObject.ai.collect = true;
 	end
 end
 
