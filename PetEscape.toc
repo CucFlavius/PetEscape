@@ -10,4 +10,4 @@
 ## X-License: GPL
 ## Version: 1.0
 
-Files.xml
+Game.lua

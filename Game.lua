@@ -44,7 +44,6 @@ Zee.DinoGame.FX = Zee.DinoGame.FX or {}
 Zee.DinoGame.FX.Text = Zee.DinoGame.FX.Text or {}
 Zee.DinoGame.AI = Zee.DinoGame.AI or {}
 local Game = Zee.DinoGame;
-local Win = ZWindowAPI;
 local Canvas = Zee.DinoGame.Canvas;
 local Environment = Zee.DinoGame.Environment;
 local Ground = Zee.DinoGame.Environment.Ground;
@@ -317,6 +316,18 @@ Game.Puzzles =
 Game.CharacterDisplayIDs = 
 { 
 	90029, -- 2459259 creature/babyraptor/babyraptor.m2
+};
+
+Game.AnimationIDs = 
+{
+	Stand = 0,
+	Walk = 4,
+	Run = 5,
+	AttackUnarmed = 16,
+    JumpStart = 37,
+    Jump = 38,
+    JumpEnd = 39,
+    Fall = 40,
 };
 
 Game.Fonts = 
@@ -998,7 +1009,7 @@ function AI.CannonInit(gameObject)
 	gameObject.currentAnimation = "Emerge";
 	gameObject.ai = {};
 	gameObject.ai.time = 0;
-	gameObject.actor:SetAnimation(Zee.animIndex[gameObject.currentAnimation], 0, 1.5, 1);
+	gameObject.actor:SetAnimation(Game.AnimationIDs[gameObject.currentAnimation], 0, 1.5, 1);
 	x,y,z = gameObject.actor:GetPosition();
 	gameObject.actor:SetPosition(x - 2, y, z);
 	gameObject.actor:SetYaw(rad(90));
@@ -1010,7 +1021,7 @@ function AI.CannonUpdate(gameObject)
 	local fire2 = 130;
 	if gameObject.ai.time == fire1 or gameObject.ai.time == fire2 then
 		gameObject.currentAnimation = "SpellCastDirected";
-		gameObject.actor:SetAnimation(Zee.animIndex[gameObject.currentAnimation], 0, 1.2);
+		gameObject.actor:SetAnimation(Game.AnimationIDs[gameObject.currentAnimation], 0, 1.2);
 	end
 	if gameObject.ai.time == fire1 + 10 or gameObject.ai.time == fire2 + 10 then
 		LevelGenerator.SpawnObject("Cannonball", { x = gameObject.position.x, y = gameObject.position.y });
@@ -1156,9 +1167,129 @@ end
 --		  	     UI					--
 --------------------------------------
 
+--- Create a new Window
+---@param posX number Window X position (horizontal)
+---@param posY number Window Y position (vertical)
+---@param sizeX number Window width
+---@param sizeY number Window height
+---@param parent table Parent frame
+---@param windowPoint string Pivot point of the current window
+---@param parentPoint string Pivot point of the parent
+---@param title string Title text
+---@return table windowFrame Wow Frame that contains all of the window elements
+function UI.CreateWindow(posX, posY, sizeX, sizeY, parent, windowPoint, parentPoint, title)
+
+	-- properties --
+	local TitleBarHeight = 20;
+	local TitleBarFont = "Fonts\\FRIZQT__.TTF";
+	local TitleBarFontSize = 10;
+
+	-- defaults --
+	if posX == nil then posX = 0; end
+	if posY == nil then posY = 0; end
+	if sizeX == nil or sizeX == 0 then sizeX = 50; end
+	if sizeY == nil or sizeY == 0 then sizeY = 50; end	
+	if parent == nil then parent = UIParent; end
+	if windowPoint == nil then windowPoint = "CENTER"; end
+	if parentPoint == nil then parentPoint = "CENTER"; end
+	if title == nil then title = ""; end
+
+	-- main window frame --
+	local WindowFrame = CreateFrame("Frame", "Window "..title, parent);
+	WindowFrame:SetPoint(windowPoint, parent, parentPoint, posX, posY);
+	WindowFrame:SetSize(sizeX, sizeY);
+	WindowFrame.texture = WindowFrame:CreateTexture("Window "..title.. " texture", "BACKGROUND");
+	WindowFrame.texture:SetColorTexture(0.2,0.2,0.2,1);
+	WindowFrame.texture:SetAllPoints(WindowFrame);
+	WindowFrame:SetMovable(true);
+	WindowFrame:EnableMouse(true);
+	--WindowFrame:SetUserPlaced(true);
+
+	-- title bar frame --
+	WindowFrame.TitleBar = CreateFrame("Frame", "Window "..title.. " TitleBar", WindowFrame);
+	WindowFrame.TitleBar:SetPoint("BOTTOM", WindowFrame, "TOP", 0, 0);
+	WindowFrame.TitleBar:SetSize(sizeX, TitleBarHeight);
+	WindowFrame.TitleBar.texture = WindowFrame.TitleBar:CreateTexture("Window "..title.. " TitleBar texture", "BACKGROUND");
+	WindowFrame.TitleBar.texture:SetColorTexture(0.5,0.5,0.5,1);
+	WindowFrame.TitleBar.texture:SetAllPoints(WindowFrame.TitleBar);
+	WindowFrame.TitleBar.text = WindowFrame.TitleBar:CreateFontString("Window "..title.. " TitleBar text");
+	WindowFrame.TitleBar.text:SetFont(TitleBarFont, TitleBarFontSize, "NORMAL");
+	WindowFrame.TitleBar.text:SetAllPoints(WindowFrame.TitleBar);
+	WindowFrame.TitleBar.text:SetText(title);
+	WindowFrame.TitleBar:EnableMouse(true);
+	WindowFrame.TitleBar:RegisterForDrag("LeftButton");
+	WindowFrame.TitleBar:SetScript("OnDragStart", function()  WindowFrame:StartMoving(); end);
+	WindowFrame.TitleBar:SetScript("OnDragStop", function() WindowFrame:StopMovingOrSizing(); end);
+
+	-- Close Button --
+	WindowFrame.CloseButton = UI.CreateButton(-1, -1, TitleBarHeight - 1, TitleBarHeight - 1, WindowFrame.TitleBar, "TOPRIGHT", "TOPRIGHT", "x", nil)
+	WindowFrame.CloseButton:SetScript("OnClick", function (self, button, down) WindowFrame:Hide(); end)
+	return WindowFrame;
+
+end
+
+function UI.CreateButton(posX, posY, sizeX, sizeY, parent, buttonPoint, parentPoint, text, icon)
+
+	-- properties --
+	local ButtonFont = "Fonts\\FRIZQT__.TTF";
+	local ButtonFontSize = 12;
+
+	-- defaults --
+	if posX == nil then posX = 0; end
+	if posY == nil then posY = 0; end
+	if sizeX == nil or sizeX == 0 then sizeX = 10; end
+	if sizeY == nil or sizeY == 0 then sizeY = 10; end	
+	if parent == nil then parent = UIParent; end
+	if buttonPoint == nil then buttonPoint = "CENTER"; end
+	if parentPoint == nil then parentPoint = "CENTER"; end
+
+	-- main button frame --
+	local Button = CreateFrame("Button", "Zee.WindowAPI.Button", parent)
+	Button:SetPoint(buttonPoint, parent, parentPoint, posX, posY);
+	Button:SetWidth(sizeX)
+	Button:SetHeight(sizeY)
+	Button.ntex = Button:CreateTexture()
+	Button.htex = Button:CreateTexture()
+	Button.ptex = Button:CreateTexture()
+	Button.ntex:SetColorTexture(0.3,0.3,0.3,1);
+	Button.htex:SetColorTexture(0.1,0.1,0.1,1);
+	Button.ptex:SetColorTexture(0.1,0.1,0.1,1);
+
+	Button.ntex:SetAllPoints()	
+	Button.ptex:SetAllPoints()
+	Button.htex:SetAllPoints()
+	Button:SetNormalTexture(Button.ntex)
+	Button:SetHighlightTexture(Button.htex)
+	Button:SetPushedTexture(Button.ptex)
+
+	-- icon --
+	if icon ~= nil then
+		local iconSize = 10;
+		if sizeX >= sizeY then iconSize = sizeY; end
+		if sizeX <= sizeY then iconSize = sizeX; end
+		Button.icon = CreateFrame("Frame", "Zee.WindowAPI.Button Icon", parent);
+		Button.icon:SetPoint("CENTER", Button, "CENTER", 0, 0);
+		Button.icon:SetSize(iconSize, iconSize);
+		Button.icon.texture = Button.icon:CreateTexture("Zee.WindowAPI.Button Icon Texture", "BACKGROUND");
+		Button.icon.texture:SetTexture(icon)
+		Button.icon.texture:SetAllPoints(Button.icon);
+	end
+
+	-- text --
+	if text ~= nil then
+		Button.text = Button:CreateFontString("Zee.WindowAPI.Button Text");
+		Button.text:SetFont(ButtonFont, ButtonFontSize, "NORMAL");
+		Button.text:SetAllPoints(Button);
+		Button.text:SetText(text);
+	end
+
+	return Button;
+
+end
+
 function UI.Initialize()
 	-- Create main window --
-	Game.mainWindow = Win.CreateWindow(0, 0, Game.width, Game.height, UIParent, "CENTER", "CENTER", true, "Pet Escape");
+	Game.mainWindow = UI.CreateWindow(0, 0, Game.width, Game.height, UIParent, "CENTER", "CENTER", "Pet Escape");
 	Game.mainWindow:SetIgnoreParentScale(true);		-- This way the camera doesn't get offset when the wow window or UI changes size/aspect
 	Game.mainWindow:SetScale(1.5);
 	Game.mainWindow:Hide();
@@ -1439,7 +1570,7 @@ function UI.AddLogoAsset(name, scene, ID, isCreature, yaw, pitch, roll, posX, po
 	asset:SetPitch(math.rad(pitch));
 	asset:SetRoll(math.rad(roll));
 	asset:SetPosition(posX, posY, posZ);
-	asset:SetAnimation(Zee.animIndex[animation]);
+	asset:SetAnimation(Game.AnimationIDs[animation]);
 	asset:SetPaused(true);
 	asset:SetScale(scale);
 	return asset;
@@ -1654,8 +1785,8 @@ function Cutscene.Update()
 					local scale1 = UI.Logo.assets[1]:GetScale();
 					UI.Logo.assets[1]:SetPaused(true);
 					UI.Logo.assets[-1]:SetPaused(true);
-					UI.Logo.assets[1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
-					UI.Logo.assets[-1]:SetAnimation(Zee.animIndex["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+					UI.Logo.assets[1]:SetAnimation(Game.AnimationIDs["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
+					UI.Logo.assets[-1]:SetAnimation(Game.AnimationIDs["AttackUnarmed"], 0, 1, frame / 4 - 0.1);
 					UI.Logo.assets[1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
 					UI.Logo.assets[-1]:SetPosition(frame / scale1, (frame + posOffs) / scale1, -2 / scale1 + hOffs);
 
@@ -1663,8 +1794,8 @@ function Cutscene.Update()
 					local scale2 = UI.Logo.assets[2]:GetScale();
 					UI.Logo.assets[2]:SetPaused(true);
 					UI.Logo.assets[-2]:SetPaused(true);
-					UI.Logo.assets[2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
-					UI.Logo.assets[-2]:SetAnimation(Zee.animIndex["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+					UI.Logo.assets[2]:SetAnimation(Game.AnimationIDs["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
+					UI.Logo.assets[-2]:SetAnimation(Game.AnimationIDs["AttackUnarmed"], 2, 1, frame / 4 - 0.1);
 					UI.Logo.assets[2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs)/ scale2);
 					UI.Logo.assets[-2]:SetPosition(frame / scale2, (-posOffs - frame) / scale2, (-2 + hOffs) / scale2);
 
@@ -1672,8 +1803,8 @@ function Cutscene.Update()
 					local scale3 = UI.Logo.assets[3]:GetScale();
 					UI.Logo.assets[3]:SetPaused(true);
 					UI.Logo.assets[-3]:SetPaused(true);
-					UI.Logo.assets[3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-					UI.Logo.assets[-3]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[3]:SetAnimation(Game.AnimationIDs["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[-3]:SetAnimation(Game.AnimationIDs["Run"], 2, 1, frame / 4);
 					UI.Logo.assets[3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
 					UI.Logo.assets[-3]:SetPosition(frame / scale3 + 4, 1 / scale3, hOffs);
 
@@ -1681,8 +1812,8 @@ function Cutscene.Update()
 					local scale4 = UI.Logo.assets[4]:GetScale();
 					UI.Logo.assets[4]:SetPaused(true);
 					UI.Logo.assets[-4]:SetPaused(true);
-					UI.Logo.assets[4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
-					UI.Logo.assets[-4]:SetAnimation(Zee.animIndex["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[4]:SetAnimation(Game.AnimationIDs["Run"], 2, 1, frame / 4);
+					UI.Logo.assets[-4]:SetAnimation(Game.AnimationIDs["Run"], 2, 1, frame / 4);
 					UI.Logo.assets[4]:SetPosition(frame / scale4 - 4, 0, -1 + hOffs);
 					UI.Logo.assets[-4]:SetPosition(frame / scale4 - 4, 0, -1.2 + hOffs);
 				end
@@ -1941,7 +2072,7 @@ end
 
 function Player.SetAnimation(name, speed)
 	Player.currentAnimation = name;
-	Canvas.character:SetAnimation(Zee.animIndex[name], 0, speed);
+	Canvas.character:SetAnimation(Game.AnimationIDs[name], 0, speed);
 end
 
 --------------------------------------
@@ -2497,7 +2628,7 @@ function Environment.SpawnObject(preSpawn)
 	Environment.actors[k].active = true;
 	Environment.actors[k].frame:Show();
 	Environment.actors[k].frame:SetModelByFileID(fdef.fileID);
-	Environment.actors[k].frame:SetAnimation(Zee.animIndex[fdef.animation or "Stand"], 0, 1);
+	Environment.actors[k].frame:SetAnimation(Game.AnimationIDs[fdef.animation or "Stand"], 0, 1);
 	
 	-- pos
 	if #fdef.x == 1 then
