@@ -28,34 +28,49 @@
 --------------------------------------
 --				Classes 			--
 --------------------------------------
-Zee = Zee or {}
-Zee.DinoGame = Zee.DinoGame or {}
-Zee.DinoGame.Canvas = Zee.DinoGame.Canvas or {}
-Zee.DinoGame.Environment = Zee.DinoGame.Environment or {};
-Zee.DinoGame.Environment.Ground = Zee.DinoGame.Environment.Ground or {};
-Zee.DinoGame.Player = Zee.DinoGame.Player or {}
-Zee.DinoGame.Physics = Zee.DinoGame.Physics or {}
-Zee.DinoGame.LevelGenerator = Zee.DinoGame.LevelGenerator or {}
-Zee.DinoGame.Cutscene = Zee.DinoGame.Cutscene or {}
-Zee.DinoGame.Sound = Zee.DinoGame.Sound or {}
-Zee.DinoGame.UI = Zee.DinoGame.UI or {}
-Zee.DinoGame.UI.MainMenu = Zee.DinoGame.UI.MainMenu or {}
-Zee.DinoGame.FX = Zee.DinoGame.FX or {}
-Zee.DinoGame.FX.Text = Zee.DinoGame.FX.Text or {}
-Zee.DinoGame.AI = Zee.DinoGame.AI or {}
-local Game = Zee.DinoGame;
-local Canvas = Zee.DinoGame.Canvas;
-local Environment = Zee.DinoGame.Environment;
-local Ground = Zee.DinoGame.Environment.Ground;
-local Player = Zee.DinoGame.Player;
-local Physics = Zee.DinoGame.Physics;
-local LevelGenerator = Zee.DinoGame.LevelGenerator;
-local Cutscene = Zee.DinoGame.Cutscene;
-local Sound = Zee.DinoGame.Sound;
-local UI = Zee.DinoGame.UI;
-local FX = Zee.DinoGame.FX;
-local AI = Zee.DinoGame.AI;
-Ground = {};
+Zee = {}; Zee.DinoGame = {}; local Game = Zee.DinoGame;
+Game.Canvas = {}; local Canvas = Game.Canvas;
+Game.Environment = {}; local Environment = Game.Environment; 
+Environment.Ground = {}; local Ground = Game.Environment.Ground;
+Game.Player = {}; local Player = Game.Player;
+Game.Physics = {}; local Physics = Game.Physics;
+Game.LevelGenerator = {}; local LevelGenerator = Game.LevelGenerator;
+Game.Cutscene = {}; local Cutscene = Game.Cutscene;
+Game.Sound = {}; local Sound = Game.Sound;
+Game.UI = {}; local UI = Game.UI; Game.UI.MainMenu = {};
+Game.FX = {}; local FX = Game.FX; FX.Text = {};
+Game.AI = {}; local AI = Game.AI;
+
+local floor = math.floor;
+local random = math.random;
+local sin = math.sin;
+local PI = math.pi;
+local rad = math.rad;
+
+--------------------------------------
+--				Settings			--
+--------------------------------------
+Game.devMode = true;
+Game.debugNoMenu = true;
+Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
+Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
+Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
+Game.height = 300;									-- Window height, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
+Game.aspectRatio = Game.width / Game.height;
+Canvas.defaultZoom = 1.5;
+Canvas.defaultPan = 0;
+Ground.floorOffsetY = 99;
+Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
+Canvas.ceiling = 50;
+Player.jumpKey = "W";
+Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
+Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
+Player.jumpLandAnimationSpeed = 1;					-- The animation speed for the character "JumpEnd" animation, playing at speed 1 feels best tbh
+Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character animation not play at full Game.speed so his legs doen't look like sonic's at higher game speeds
+Player.deathZone = 31;
+Game.DEBUG_TrailCount = 40;
+LevelGenerator.objectPoolSize = 10;
+Environment.Initial = "Forest";
 
 --------------------------------------
 --				Variables			--
@@ -104,31 +119,6 @@ Game.matchCoins = 0;
 Environment.isTransitioning = false;
 Environment.objPosition = 0;
 Environment.totalObjects = 0;
-
---------------------------------------
---				Settings			--
---------------------------------------
-Game.devMode = true;
-Game.debugNoMenu = true;
-Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
-Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
-Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
-Game.height = 300;									-- Window height, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
-Game.aspectRatio = Game.width / Game.height;
-Canvas.defaultZoom = 1.5;
-Canvas.defaultPan = 0;
-Ground.floorOffsetY = 99;
-Canvas.dinoShadowBlobY = 80;						-- The y position in screen space of the dinosaur blob shadow frame
-Canvas.ceiling = 50;
-Player.jumpKey = "W";
-Player.jumpStartTime = 0.2;							-- The time in seconds for which to play the "JumpStart" animation before switching to "Jump" (Unused atm)
-Player.jumpLandTime = 0.2;							-- The time in seconds for which to play the "JumpEnd" animation before switching to "Run" right after landing
-Player.jumpLandAnimationSpeed = 1;					-- The animation speed for the character "JumpEnd" animation, playing at speed 1 feels best tbh
-Player.runAnimationSpeedMultiplier = 0.7;			-- Mainly used to make the character animation not play at full Game.speed so his legs doen't look like sonic's at higher game speeds
-Player.deathZone = 31;
-Game.DEBUG_TrailCount = 40;
-LevelGenerator.objectPoolSize = 10;
-Environment.Initial = "Forest";
 Environment.CurrentDefinition = Environment.Initial;
 Environment.NextDefinition = "";
 
@@ -907,7 +897,7 @@ function LevelGenerator.SpawnPuzzle()
 	--local puzzles = { "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "CannonTest", "RoofSlideTest", "RoofTest" };
 	-- local puzzles = { "1Empty" };
 	local puzzles = { "CoinTest", "4Empty" };
-	local pick = math.floor(Game.Random() * #puzzles) + 1;
+	local pick = floor(Game.Random() * #puzzles) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
 	for k = 1, puzzle.objectCount, 1 do
@@ -986,12 +976,12 @@ local A1, A2 = 727595, 798405  -- 5^17=D20*A1+A2
 local D20, D40 = 1048576, 1099511627776  -- 2^20, 2^40
 local X1, X2 = 0, 1
 function Game.Random()
-	return math.random();
+	return random();
 	--[[
     local U = X2*A2
     local V = (X1*A2 + X2*A1) % D20
     V = (V*D20 + U) % D40
-    X1 = math.floor(V/D20)
+    X1 = floor(V/D20)
     X2 = V - X1*D20
     return V/D40
 	--]]
@@ -1076,7 +1066,7 @@ end
 function AI.CoinFloatyUpdate(gameObject)
 	gameObject.ai.time = gameObject.ai.time + 1;
 	if gameObject.ai.collecting == false then
-		gameObject.position.y = math.sin(gameObject.ai.time / 10) / 2 + gameObject.ai.initialY;
+		gameObject.position.y = sin(gameObject.ai.time / 10) / 2 + gameObject.ai.initialY;
 		gameObject.actor:SetRoll(rad(gameObject.ai.time * 2));
 	else
 		AI.Collect(gameObject);
@@ -1091,7 +1081,7 @@ end
 
 function AI.Collect(gameObject)
 	local timer = (gameObject.ai.time - gameObject.ai.collectingTime);
-	gameObject.position.y = Game.Lerp(gameObject.position.y, 5.5, math.sin(timer / 200 * math.pi));	-- I was gonna do ease in curve for the coin collecting but gave up halfway through
+	gameObject.position.y = Game.Lerp(gameObject.position.y, 5.5, sin(timer / 200 * PI));	-- I was gonna do ease in curve for the coin collecting but gave up halfway through
 	gameObject.actor:SetAlpha(gameObject.actor:GetAlpha() - 0.03);
 	gameObject.actor:SetRoll(rad(gameObject.ai.time * 20));
 
@@ -1144,7 +1134,7 @@ function Canvas.CreateMainScene()
 	-- Create character actor --
     Canvas.character = Canvas.mainScene:CreateActor("character");
     Canvas.character:SetModelByCreatureDisplayID(Game.CharacterDisplayIDs[1]);
-    Canvas.character:SetYaw(math.rad(-90));
+    Canvas.character:SetYaw(rad(-90));
 	Canvas.character:SetPosition(0, 21, 0);
 	Canvas.character:SetPaused(true);
 	Game.PlayerObject = {}
@@ -1329,7 +1319,7 @@ function UI.CreateMainMenu()
 	UI.MainMenu.bgFrame.texture = UI.MainMenu.bgFrame:CreateTexture("UI.MainMenu.bgFrame.texture","BACKGROUND")
 	UI.MainMenu.bgFrame.texture:SetTexture(1883578, "REPEAT", "REPEAT");
 	UI.MainMenu.bgFrame.texture:SetTexCoord(0,2,0,4);
-	UI.MainMenu.bgFrame.texture:SetRotation(math.rad(90));
+	UI.MainMenu.bgFrame.texture:SetRotation(rad(90));
 	UI.MainMenu.bgFrame.texture:SetAllPoints(UI.MainMenu.bgFrame);
 
 	UI.MainMenu.menuBgFrame = CreateFrame("Frame", "UI.MainMenu.menuBgFrame", UI.MainMenu.frame);
@@ -1339,7 +1329,7 @@ function UI.CreateMainMenu()
 	UI.MainMenu.menuBgFrame.texture = UI.MainMenu.menuBgFrame:CreateTexture("UI.MainMenu.bgFrame.texture","BACKGROUND")
 	UI.MainMenu.menuBgFrame.texture:SetTexture(3640932, "CLAMP", "CLAMP");
 	UI.MainMenu.menuBgFrame.texture:SetTexCoord(0,0.65,0,0.575);
-	--UI.MainMenu.menuBgFrame.texture:SetRotation(math.rad(-90));
+	--UI.MainMenu.menuBgFrame.texture:SetRotation(rad(-90));
 	UI.MainMenu.menuBgFrame.texture:SetAllPoints(UI.MainMenu.menuBgFrame);
 
 	UI.MainMenu.buttonsHolder = CreateFrame("Frame", "UI.MainMenu.buttonsHolder", UI.MainMenu.frame);
@@ -1367,7 +1357,7 @@ function UI.CreateMainMenu()
 	UI.MainMenu.scene:SetFrameLevel(1201);
 	UI.MainMenu.scene:SetCameraFarClip(1000);
 	UI.MainMenu.scene:SetLightDirection(0.5, 1, -1);
-	UI.MainMenu.scene:SetCameraFieldOfView(math.rad(90));
+	UI.MainMenu.scene:SetCameraFieldOfView(rad(90));
 	--UI.CreateMainMenuFrame();
 end
 
@@ -1444,39 +1434,39 @@ end
 function UI.CreateMainMenuFrame()
 	UI.MainMenu.assets[1] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[1]");
     UI.MainMenu.assets[1]:SetModelByFileID(1013989);
-    --UI.MainMenu.assets[1]:SetYaw(math.rad(0));
-	UI.MainMenu.assets[1]:SetPitch(math.rad(90));
+    --UI.MainMenu.assets[1]:SetYaw(rad(0));
+	UI.MainMenu.assets[1]:SetPitch(rad(90));
 	UI.MainMenu.assets[1]:SetPosition(0, 2, 0);
 
 	UI.MainMenu.assets[2] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[2]");
     UI.MainMenu.assets[2]:SetModelByFileID(1013989);
-    --UI.MainMenu.assets[2]:SetYaw(math.rad(0));
-	UI.MainMenu.assets[2]:SetPitch(math.rad(90));
+    --UI.MainMenu.assets[2]:SetYaw(rad(0));
+	UI.MainMenu.assets[2]:SetPitch(rad(90));
 	UI.MainMenu.assets[2]:SetPosition(0, -2, 0);
 
 	UI.MainMenu.assets[3] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[3]");
     UI.MainMenu.assets[3]:SetModelByFileID(1013989);
-    UI.MainMenu.assets[3]:SetRoll(math.rad(90));
-	UI.MainMenu.assets[3]:SetYaw(math.rad(90));
+    UI.MainMenu.assets[3]:SetRoll(rad(90));
+	UI.MainMenu.assets[3]:SetYaw(rad(90));
 	UI.MainMenu.assets[3]:SetPosition(0, 0, 2.5);
 
 	UI.MainMenu.assets[4] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[4]");
     UI.MainMenu.assets[4]:SetModelByFileID(1013989);
-    UI.MainMenu.assets[4]:SetRoll(math.rad(90));
-	UI.MainMenu.assets[4]:SetYaw(math.rad(90));
+    UI.MainMenu.assets[4]:SetRoll(rad(90));
+	UI.MainMenu.assets[4]:SetYaw(rad(90));
 	UI.MainMenu.assets[4]:SetPosition(0, 0, -2.5);
 
 	UI.MainMenu.assets[5] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[5]");
     UI.MainMenu.assets[5]:SetModelByFileID(1523215);
-    UI.MainMenu.assets[5]:SetRoll(math.rad(0));
-	UI.MainMenu.assets[5]:SetYaw(math.rad(180));
+    UI.MainMenu.assets[5]:SetRoll(rad(0));
+	UI.MainMenu.assets[5]:SetYaw(rad(180));
 	UI.MainMenu.assets[5]:SetPosition(-2, -4, -5.5);
 	UI.MainMenu.assets[5]:SetScale(0.5);
 
 	UI.MainMenu.assets[6] = UI.MainMenu.scene:CreateActor("UI.MainMenu.assets[6]");
     UI.MainMenu.assets[6]:SetModelByFileID(1523229);
-    UI.MainMenu.assets[6]:SetRoll(math.rad(0));
-	UI.MainMenu.assets[6]:SetYaw(math.rad(180));
+    UI.MainMenu.assets[6]:SetRoll(rad(0));
+	UI.MainMenu.assets[6]:SetYaw(rad(180));
 	UI.MainMenu.assets[6]:SetPosition(-2, 4, -5.5);
 	UI.MainMenu.assets[6]:SetScale(0.5);
 end
@@ -1519,7 +1509,7 @@ function UI.CreateLogo()
 	UI.Logo.scene:SetFrameLevel(1200);
 	UI.Logo.scene:SetCameraFarClip(5000);
 	UI.Logo.scene:SetLightDirection(0.5, 1, -1);
-	UI.Logo.scene:SetCameraFieldOfView(math.rad(90));
+	UI.Logo.scene:SetCameraFieldOfView(rad(90));
 	UI.Logo.scene:SetFogFar(100);
 	UI.Logo.scene:SetFogNear(20);
 	UI.Logo.scene:SetFogColor(0,0,0);
@@ -1533,7 +1523,7 @@ function UI.CreateLogo()
 	UI.Logo.shadowScene:SetFrameLevel(1200);
 	UI.Logo.shadowScene:SetCameraFarClip(1000);
 	UI.Logo.shadowScene:SetLightDirection(0.5, 1, -1);
-	UI.Logo.shadowScene:SetCameraFieldOfView(math.rad(60));
+	UI.Logo.shadowScene:SetCameraFieldOfView(rad(60));
 	UI.Logo.shadowScene:SetLightVisible(false);
 	UI.Logo.shadowScene:Hide();
 
@@ -1545,7 +1535,7 @@ function UI.CreateLogo()
 	UI.Logo.bgScene:SetFrameLevel(1200);
 	UI.Logo.bgScene:SetCameraFarClip(5000);
 	UI.Logo.bgScene:SetLightDirection(0.5, 1, -1);
-	UI.Logo.bgScene:SetCameraFieldOfView(math.rad(90));
+	UI.Logo.bgScene:SetCameraFieldOfView(rad(90));
 	UI.Logo.bgScene:Hide();
 
 	UI.Logo.assets[1] = UI.AddLogoAsset("UI.Logo.LeftSideNPC", UI.Logo.scene, 90029, true, 150, 0, 0, 0, 0, 0, "Run", 1);
@@ -1566,9 +1556,9 @@ function UI.AddLogoAsset(name, scene, ID, isCreature, yaw, pitch, roll, posX, po
 	else
 		asset:SetModelByFileID(ID);
 	end
-    asset:SetYaw(math.rad(yaw));
-	asset:SetPitch(math.rad(pitch));
-	asset:SetRoll(math.rad(roll));
+    asset:SetYaw(rad(yaw));
+	asset:SetPitch(rad(pitch));
+	asset:SetRoll(rad(roll));
 	asset:SetPosition(posX, posY, posZ);
 	asset:SetAnimation(Game.AnimationIDs[animation]);
 	asset:SetPaused(true);
@@ -1777,7 +1767,7 @@ function Cutscene.Update()
 				local offs1 = 150;
 				if Cutscene.time <= 240 + offs1 then
 					--local playSpeed = (2 - (Cutscene.time / 60)) * 2;
-					local frame = (sin(((Cutscene.time - offs1) / 2) * math.pi / 4) + 1) / 2;
+					local frame = (sin(((Cutscene.time - offs1) / 2) * PI / 4) + 1) / 2;
 					local posOffs = 2;
 					local hOffs = -1;
 
@@ -2048,7 +2038,7 @@ end
 
 function Player.CalculateJumpVelocity()
 	local distance = Player.worldPosY / Player.CurrentJumpHeight;
-	local val =  sin((1 - distance) * math.pi * 0.9) * 50 + 0.01;
+	local val =  sin((1 - distance) * PI * 0.9) * 50 + 0.01;
 	--Player.jumpTime = Player.jumpTime + distance;--(Game.UPDATE_INTERVAL * 5);
 	val = max(val , 0);
 	--[[
@@ -2063,7 +2053,7 @@ end
 
 function Player.CalculateFallVelocity()
 	local distance = Player.worldPosY / Player.CurrentJumpHeight;
-	local val = (sin((1 - distance) * math.pi * 2) * 50 + 0.01);
+	local val = (sin((1 - distance) * PI * 2) * 50 + 0.01);
 	--Player.jumpTime = Player.jumpTime - distance;--(Game.UPDATE_INTERVAL * 5);
 	val = max(val , 0);
     --return val * 1.7;
@@ -2221,7 +2211,7 @@ function Environment.CreateLayer6()
 	local zDepth = def.zDepth or 7;
 	local blend = def.blend or nil;
 	for i = 1, Environment.Constants.layer6MaxSprites, 1 do
-		local pick = math.floor(Game.Random() * #def.fDefs) + 1;
+		local pick = floor(Game.Random() * #def.fDefs) + 1;
 		local fdef = def.fDefs[pick];
 
 		Environment.Layer6Frames[i] = {};
@@ -2465,7 +2455,7 @@ function Environment.Update()
 		if Environment.transitionTime == 600 then
 			for i = 1, Environment.Constants.layer6MaxSprites, 1 do
 				local def = Environment.Definitions[Environment.NextDefinition].Layer6;
-				local pick = math.floor(Game.Random() * #def.fDefs) + 1;
+				local pick = floor(Game.Random() * #def.fDefs) + 1;
 				local fdef = def.fDefs[pick];
 
 				--Environment.Layer6Frames[i].transition = false;
@@ -2621,7 +2611,7 @@ function Environment.SpawnObject(preSpawn)
 		defName = Environment.NextDefinition;
 	end
 	local nDefL3 = Environment.Definitions[defName].Layer3;
-	local pick = math.floor(Game.Random() * #nDefL3.fDefs) + 1;
+	local pick = floor(Game.Random() * #nDefL3.fDefs) + 1;
 	local fdef = nDefL3.fDefs[pick];
 
 	local k = Environment.GetAvailableGameObject();
