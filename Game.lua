@@ -26,7 +26,7 @@
 -- creature\hunterkillership\alphamask_verticalgradient.blp 2903846
 
 --------------------------------------
---				Classes 			--
+--  Classes							--
 --------------------------------------
 Zee = {}; Zee.DinoGame = {}; local Game = Zee.DinoGame;
 Game.Canvas = {}; local Canvas = Game.Canvas;
@@ -37,18 +37,21 @@ Game.Physics = {}; local Physics = Game.Physics;
 Game.LevelGenerator = {}; local LevelGenerator = Game.LevelGenerator;
 Game.Cutscene = {}; local Cutscene = Game.Cutscene;
 Game.Sound = {}; local Sound = Game.Sound;
-Game.UI = {}; local UI = Game.UI; Game.UI.MainMenu = {};
+Game.UI = {}; local UI = Game.UI; Game.UI.MainMenu = {}; Game.UI.HUD = {};
 Game.FX = {}; local FX = Game.FX; FX.Text = {};
 Game.AI = {}; local AI = Game.AI;
 
 local floor = math.floor;
 local random = math.random;
 local sin = math.sin;
+local cos = math.cos;
 local PI = math.pi;
 local rad = math.rad;
+local min = math.min;
+local max = math.max;
 
 --------------------------------------
---				Settings			--
+--  Settings						--
 --------------------------------------
 Game.devMode = true;
 Game.debugNoMenu = true;
@@ -73,7 +76,7 @@ LevelGenerator.objectPoolSize = 10;
 Environment.Initial = "Forest";
 
 --------------------------------------
---				Variables			--
+--  Variables						--
 --------------------------------------
 Game.paused = true;
 Game.over = false;
@@ -366,6 +369,16 @@ Game.FX.Symbols =
 	["X"] = { fileID = 1084385, w = 400, h = 100, x = -29 , y =  24, fw = 39 },
 	["Y"] = { fileID = 1084371, w = 400, h = 100, x = -230, y =  0 , fw = 34 },
 	["Z"] = {},
+	["1"] = { fileID = 982889, w = 400, h = 50, x =  0  , y = 0 , fw = 40 },
+	["2"] = { fileID = 982889, w = 400, h = 50, x = -45 , y = 0 , fw = 40 },
+	["3"] = { fileID = 982889, w = 400, h = 50, x = -85 , y = 0 , fw = 40 },
+	["4"] = { fileID = 982889, w = 400, h = 50, x = -125, y = 0 , fw = 40 },
+	["5"] = { fileID = 982889, w = 400, h = 50, x = -165, y = 0 , fw = 40 },
+	["6"] = { fileID = 982889, w = 400, h = 50, x = -205, y = 0 , fw = 40 },
+	["7"] = { fileID = 982889, w = 400, h = 50, x = -245, y = 0 , fw = 40 },
+	["8"] = { fileID = 982889, w = 400, h = 50, x = -285, y = 0 , fw = 40 },
+	["9"] = { fileID = 982889, w = 400, h = 50, x = -325, y = 0 , fw = 40 },
+	["0"] = { fileID = 982889, w = 400, h = 50, x = -365, y = 0 , fw = 40 },
 };
 
 Environment.Constants = 
@@ -759,7 +772,7 @@ Environment.Definitions =
 };
 
 --------------------------------------
---		       Game State			--
+--  Game State						--
 --------------------------------------
 function Game.Pause()
 	if Game.debugNoMenu == false then
@@ -857,7 +870,7 @@ function Game.Exit()
 end
 
 --------------------------------------
---          Level Generator         --
+--  Level Generator					--
 --------------------------------------
 
 function LevelGenerator.Initialize()
@@ -992,7 +1005,7 @@ function Game.Lerp(a, b, t)
 end
 
 --------------------------------------
---			       AI				--
+--  AI								--
 --------------------------------------
 
 function AI.CannonInit(gameObject)
@@ -1087,13 +1100,13 @@ function AI.Collect(gameObject)
 
 	-- Actually collect
 	if timer == 20 then
-		Game.matchCoins = Game.matchCoins + 1
-		print (Game.matchCoins)
+		Game.matchCoins = Game.matchCoins + 1;
+		UI.HUD.SetCoins();
 	end
 end
 
 --------------------------------------
---		       	Canvas				--
+--  Canvas							--
 --------------------------------------
 
 function Canvas.Create()
@@ -1154,7 +1167,7 @@ function Canvas.CreateMainScene()
 end
 
 --------------------------------------
---		  	     UI					--
+--  UI								--
 --------------------------------------
 
 --- Create a new Window
@@ -1292,7 +1305,7 @@ function UI.Initialize()
 	UI.CreateLogo();
 	UI.CreateLogoText();
 
-	UI.CreateHUD();
+	UI.HUD.Create();
 
 	-- Run first frame of the logo animation --
 	Cutscene.isPlaying = true;
@@ -1303,8 +1316,8 @@ function UI.Initialize()
 end
 
 function UI.Animate()
-	UI.AnimateMainMenu();
-	UI.AnimateHUD();
+	UI.MainMenu.Animate();
+	UI.HUD.Animate();
 end
 
 function UI.CreateMainMenu()
@@ -1471,7 +1484,7 @@ function UI.CreateMainMenuFrame()
 	UI.MainMenu.assets[6]:SetScale(0.5);
 end
 
-function UI.AnimateMainMenu()
+function UI.MainMenu.Animate()
 	local x, y;
 	local speed = 200;
 	local ofs = 50;
@@ -1622,8 +1635,7 @@ function UI.MainMenu.ButtonExit()
 	end
 end
 
-function UI.CreateHUD()
-	UI.HUD = {};
+function UI.HUD.Create()
 	UI.HUD.texts = {};
 
 	-- Coins text
@@ -1632,12 +1644,12 @@ function UI.CreateHUD()
 	UI.HUD.coins.frame:SetPoint("TOPLEFT", Game.mainWindow, "TOPLEFT", x, y);
 	UI.HUD.coins.frame:SetSize(100, 30);
 	UI.HUD.coins.frame:SetFrameLevel(1201);
-	UI.HUD.coins.text = FX.Text.CreateWord("coin count", 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT");
-	UI.HUD.coins.shadowText = FX.Text.CreateWord("coin count", 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT");
+	UI.HUD.coins.text = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT");
+	UI.HUD.coins.shadowText = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT");
 	UI.HUD.texts[1] = UI.HUD.coins;	-- adding to be animated
 end
 
-function UI.AnimateHUD()
+function UI.HUD.Animate()
 	local x, y;
 	local speed = 200;
 	local ofs = 50;
@@ -1656,8 +1668,13 @@ function UI.AnimateHUD()
 	end
 end
 
+function UI.HUD.SetCoins()
+	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.text);
+	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.shadowText);
+end
+
 --------------------------------------
---              Sound               --
+--  Sound							--
 --------------------------------------
 
 function Sound.Update()
@@ -1674,7 +1691,7 @@ function Sound.Update()
 end
 
 --------------------------------------
---             Cutscene             --
+--  Cutscene						--
 --------------------------------------
 
 function Cutscene.Play(name)
@@ -1858,7 +1875,7 @@ function FX.RotatePoint(cx, cy, angle)
 end
 
 --------------------------------------
---			    Effects				--
+--  Effects							--
 --------------------------------------
 
 function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
@@ -1880,6 +1897,14 @@ function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
 	return s;
 end
 
+function FX.Text.SetSymbol(symbol, s)
+	local sInfo = Game.FX.Symbols[symbol];
+	s:SetWidth(sInfo.fw);
+	s.mask:SetTexture(sInfo.fileID, "CLAMP", "CLAMP")
+	s.mask:SetSize(sInfo.w, sInfo.h);
+	s.mask:SetPoint("LEFT", sInfo.x, sInfo.y)
+end
+
 function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
 	word = string.upper(word)
 	if r == nil then r = 1 end
@@ -1891,6 +1916,15 @@ function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
 
 	local length = #word;
 	local w = {};
+	w.x = x;
+	w.y = y;
+	w.parent = parent;
+	w.spacing = spacing;
+	w.scale = scale;
+	w.r = r;
+	w.g = g;
+	w.b = b;
+	w.point = point;
 	local offs = 0;
 	for	i = 1, length, 1 do
 		local char = string.sub(word, i, i);
@@ -1901,8 +1935,31 @@ function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
 	return w;
 end
 
+function FX.Text.SetWord(word, w)
+	word = string.upper(word)
+	local offs = 0;
+	local wL = #w;
+	for	i = 1, #word, 1 do
+		local char = string.sub(word, i, i);
+		if i <= #w then
+			FX.Text.SetSymbol(char, w[i]);
+			w[i]:Show();
+		else
+			w[i] = FX.Text.CreateSymbol(char, w.x + (Game.FX.Symbols[char].fw * w.spacing * (i - 1)), w.y, w.parent, w.scale, w.r, w.g, w.b, w.point);
+		end
+	end
+
+	if #w > #word then
+		for	i = 1, #w, 1 do
+			if i > #word then
+				w[i]:Hide();
+			end
+		end
+	end
+end
+
 --------------------------------------
---		  	  DEBUGGING				--
+--  DEBUGGING						--
 --------------------------------------
 
 function Canvas.DEBUG_CreateCaracterTrails()
@@ -1962,7 +2019,7 @@ function Game.DEBUG_StepForward()
 end
 
 --------------------------------------
---			PLayer Input			--
+--  PLayer Input					--
 --------------------------------------
 
 function Player.KeyPress(self, key)
@@ -2025,7 +2082,7 @@ function Game.CreatePlayerInputFrame()
 end
 
 --------------------------------------
---		Character Animations		--
+--  Character Animations			--
 --------------------------------------
 
 function Player.UpdateBlobShadow()
@@ -2066,7 +2123,7 @@ function Player.SetAnimation(name, speed)
 end
 
 --------------------------------------
---			Environment				--
+--  Environment						--
 --------------------------------------
 
 --- Create Environment, executed only at initialization.
@@ -2310,7 +2367,6 @@ end
 
 --- Update environment, runs every frame.
 function Environment.Update()
--- print (Environment.totalObjects)
 
 	Environment.UpdateLayer0();
 	Environment.UpdateLayer1();
@@ -2580,7 +2636,6 @@ function Environment.UpdateLayer3()
 			-- move
 			Environment.actors[k].positionY = Environment.actors[k].positionY + ((Game.speed / 50) / Environment.actors[k].scale);
 
-			--print (Environment.actors[k].positionY)
 			-- reset 
 			if Environment.actors[k].positionY * Environment.actors[k].scale > 5 then
 				-- Environment.actors[k].active = false;
@@ -2880,7 +2935,7 @@ function Environment.Blend(defName)
 end
 
 --------------------------------------
---              Physics             --
+--  Physics							--
 --------------------------------------
 
 function Physics.Update()
@@ -3030,7 +3085,6 @@ function Player.Update()
 	--	Game.speed = 4;
 	--end
 
-	--print (Player.worldPosY + Game.ObjectDefinitions["Player"].collider.h .. " " ..  Player.roof);
 	if Player.jumpHeight >= 14 or Player.jumpHold == false or Player.jumpEnd == true then
 		Player.canJump = false;
 		--Player.jumpHold = false;
@@ -3107,7 +3161,7 @@ function Player.Update()
 end
 
 --------------------------------------
---			Initialization			--
+--  Initialization					--
 --------------------------------------
 
 function Game.Initialize()
@@ -3148,7 +3202,7 @@ function Game.Initialize()
 end
 
 --------------------------------------
---			Update Loop				--
+--  Update loop						--
 --------------------------------------
 
 function Game.Update(self, elapsed)
