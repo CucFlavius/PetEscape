@@ -1088,6 +1088,7 @@ function AI.CoinFloatyUpdate(gameObject)
 	if gameObject.ai.collect == true then
 		gameObject.ai.collecting = true;
 		gameObject.ai.collect = false;
+		gameObject.actor:SetParticleOverrideScale(2);
 		gameObject.ai.collectingTime = gameObject.ai.time;
 	end
 end
@@ -1102,6 +1103,9 @@ function AI.Collect(gameObject)
 	if timer == 20 then
 		Game.matchCoins = Game.matchCoins + 1;
 		UI.HUD.SetCoins();
+		if UI.HUD.coinCollectTimer >= 1 then
+			UI.HUD.coinCollectTimer = 0;
+		end
 	end
 end
 
@@ -1638,15 +1642,34 @@ end
 function UI.HUD.Create()
 	UI.HUD.texts = {};
 
+	local hudFrameLevel = 1201;
+
 	-- Coins text
 	UI.HUD.coins = {};
 	UI.HUD.coins.frame = CreateFrame("Frame", "UI.HUD.coins.frame", Game.mainWindow);
 	UI.HUD.coins.frame:SetPoint("TOPLEFT", Game.mainWindow, "TOPLEFT", x, y);
 	UI.HUD.coins.frame:SetSize(100, 30);
-	UI.HUD.coins.frame:SetFrameLevel(1201);
+	UI.HUD.coins.frame:SetFrameLevel(hudFrameLevel);
 	UI.HUD.coins.text = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT");
 	UI.HUD.coins.shadowText = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT");
 	UI.HUD.texts[1] = UI.HUD.coins;	-- adding to be animated
+
+	-- Coin icon
+	UI.HUD.coinIconModel = CreateFrame("PlayerModel", "UI.HUD.coinIconModel", UI.HUD.coins.frame);
+	UI.HUD.coinIconModel:SetPoint("LEFT", UI.HUD.coins.frame, "LEFT", 0, 0);
+    UI.HUD.coinIconModel:SetSize(40, 40);
+	UI.HUD.coinIconModel:SetFrameLevel(hudFrameLevel);
+	UI.HUD.coinIconModel:SetModel(916276);
+	UI.HUD.coinIconModel:SetPosition(0,0,0);
+	UI.HUD.coinIconModel:SetModelScale(1.5);
+	UI.HUD.coinIconModel:SetPitch(rad(90));
+	UI.HUD.coinIconModel:SetFacing(rad(0));
+	UI.HUD.coinIconModel:SetParticlesEnabled(false);
+	UI.HUD.coinIconModel:Show();
+	UI.HUD.coinCollectTimer = 1;
+	-- UI.HUD.coinIconModel.texture = UI.HUD.coinIconModel:CreateTexture("UI.HUD.coinIconModel.texture")
+	-- UI.HUD.coinIconModel.texture:SetColorTexture(0,0,0);
+	-- UI.HUD.coinIconModel.texture:SetAllPoints(UI.HUD.coinIconModel);
 end
 
 function UI.HUD.Animate()
@@ -1666,6 +1689,22 @@ function UI.HUD.Animate()
 			UI.HUD.texts[b].text[i].texture:SetVertexOffset(4, x * ofs2, y * ofs2);
 		end
 	end
+
+	if UI.HUD.coinCollectTimer < 1 then
+		UI.HUD.coinCollectTimer = UI.HUD.coinCollectTimer + 0.02;
+		local angle = Game.Lerp(0, 360, UI.HUD.coinCollectTimer);
+		--UI.HUD.coinIconModel:SetPitch(rad(angle));
+		UI.HUD.coinIconModel:SetFacing(rad(angle));
+		local scale = 1.5;
+		if UI.HUD.coinCollectTimer < 0.5 then
+			scale = Game.Lerp(1.5, 3, UI.HUD.coinCollectTimer * 2);
+		else
+			scale =  Game.Lerp(3, 1.5, (UI.HUD.coinCollectTimer - 0.5) * 2);
+		end
+		UI.HUD.coinIconModel:SetModelScale(scale);
+	end
+
+	UI.HUD.coinIconModel:SetPosition(0,0,sin(Game.realTime * 5) / 20);
 end
 
 function UI.HUD.SetCoins()
