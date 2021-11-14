@@ -40,6 +40,7 @@ Game.Sound = {}; local Sound = Game.Sound;
 Game.UI = {}; local UI = Game.UI; Game.UI.MainMenu = {}; Game.UI.HUD = {};
 Game.FX = {}; local FX = Game.FX; FX.Text = {};
 Game.AI = {}; local AI = Game.AI;
+Game.Editor = {}; local Editor = Game.Editor;
 
 local floor = math.floor;
 local random = math.random;
@@ -54,8 +55,10 @@ local max = math.max;
 --  Settings						--
 --------------------------------------
 Game.version = 0.2;
-Game.devMode = false;
-Game.debugNoMenu = false;
+Game.devMode = true;
+Game.debugNoMenu = true;
+Game.debugDrawTrails = false;
+Game.runWithEditor = true;
 Game.UPDATE_INTERVAL = 0.02;						-- Basicly fixed delta time, represents how much time must pass before the update loops
 Game.SCENE_SYNC = 23;								-- Used to synchronize the horizontal movement of the game object actors with the ground scrolling speed (Don't touch, it's gud)
 Game.width = 640;									-- Window width, reference resolution (not actual resoluition since we use scale to resize the window for technical reasons)
@@ -272,158 +275,173 @@ function Game.CreateObjectDefinitions()
 	}
 end
 
-Game.Puzzles =
-{
-	["1Empty"] =
-	{
-		length = 1,
-	},
+function Game.CreatePuzzleData()
+    Game.Puzzles =
+    {
+        ["1Empty"] =
+        {
+            length = 1,
+        },
 
-	["4Empty"] =
-	{
-		length = 4,
-	},
+        ["4Empty"] =
+        {
+            length = 4,
+        },
 
-	["RoofTest"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
-			{ dName = "Crate", position = { x = 1.27, y = 1.27 * 3 } },
-			{ dName = "Crate", position = { x = 1.27 * 2, y = 1.27 * 3 } },
-			{ dName = "Crate", position = { x = 1.27 * 3, y = 1.27 * 2 } },
-			{ dName = "CoinStatic", position = { x = 1.27 * 2, y = 5.5 } },
-		},
-		length = 1.27 * 4;
-	},
+        ["RoofTest"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27 * 2, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27 * 3, y = 1.27 * 2 } },
+                { dName = "CoinStatic", position = { x = 1.27 * 2, y = 5.5 } },
+            },
+            length = 1.27 * 4;
+        },
 
-	
-	["RoofSlideTest"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "Crate", position = { x = 0, y = 1.27 } },
-			{ dName = "Crate", position = { x = 0, y = 1.27 * 2 } },
-			{ dName = "CoinStatic", position = { x = 0, y = 4.3 } },
-			{ dName = "Crate", position = { x = 0, y = 1.27 * 4 } },
-		},
-		length = 7;
-	},
+        ["RoofSlideTest"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 1.27 } },
+                { dName = "Crate", position = { x = 0, y = 1.27 * 2 } },
+                { dName = "CoinStatic", position = { x = 0, y = 4.3 } },
+                { dName = "Crate", position = { x = 0, y = 1.27 * 4 } },
+            },
+            length = 7;
+        },
 
-	["CannonTest"] = 
-	{
-		objects = 
-		{ 
-			--{ dName = "Crate", position = { x = 0, y = 0 } },
-			{ dName = "Cannon", position = { x = 1.27, y = 0 } },
-			--{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
-		},
-		length = 3;
-	},
+        ["CannonTest"] = 
+        {
+            objects = 
+            { 
+                --{ dName = "Crate", position = { x = 0, y = 0 } },
+                { dName = "Cannon", position = { x = 1.27, y = 0 } },
+                --{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
+            },
+            length = 3;
+        },
 
-	["CoinTest"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "CoinFloaty", position = { x = 0, y = 1 } },
-			{ dName = "CoinFloaty", position = { x = 1, y = 1 } },
-			{ dName = "CoinFloaty", position = { x = 2, y = 1 } },
-			{ dName = "CoinFloaty", position = { x = 3, y = 1 } },
-			{ dName = "CoinFloaty", position = { x = 4, y = 1 } },
-			{ dName = "CoinFloaty", position = { x = 5, y = 1 } },
-		},
-		length = 6;
-	},
+        ["CoinTest"] = 
+        {
+            objects = 
+            { 
+                { dName = "CoinFloaty", position = { x = 0, y = 1 } },
+                { dName = "CoinFloaty", position = { x = 1, y = 1 } },
+                { dName = "CoinFloaty", position = { x = 2, y = 1 } },
+                { dName = "CoinFloaty", position = { x = 3, y = 1 } },
+                { dName = "CoinFloaty", position = { x = 4, y = 1 } },
+                { dName = "CoinFloaty", position = { x = 5, y = 1 } },
+            },
+            length = 6;
+        },
 
-	["ForestTest"] = 
-	{
-		objects = 
-		{ 
-			-- { dName = "WoodenLogA0", position = { x = 0, y = 0 } },
-			-- { dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
-			-- { dName = "SawBlade", position = { x = 0, y = 0 } },
-			-- { dName = "SideLogA", position = { x = 0, y = 0 } },
-			-- { dName = "SideLogA", position = { x = 6, y = 0 } },
-			{ dName = "RoombaR", position = { x = 0, y = 0 } },
-			{ dName = "RoombaL", position = { x = 4, y = 0 } },
-		},
-		length = 10;
-	},
+        ["ForestTest"] = 
+        {
+            objects = 
+            { 
+                -- { dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+                -- { dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
+                -- { dName = "SawBlade", position = { x = 0, y = 0 } },
+                -- { dName = "SideLogA", position = { x = 0, y = 0 } },
+                -- { dName = "SideLogA", position = { x = 6, y = 0 } },
+                { dName = "RoombaR", position = { x = 0, y = 0 } },
+                { dName = "RoombaL", position = { x = 4, y = 0 } },
+            },
+            length = 10;
+        },
 
-	["ForestLogs0"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "WoodenLogA0", position = { x = 0, y = 0 } },
-		},
-		length = 5,
-	},
+        ["ForestLogs0"] = 
+        {
+            objects = 
+            { 
+                { dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+            },
+            length = 5,
+        },
 
-	["ForestLogs1"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "WoodenLogA0", position = { x = 0, y = 0 } },
-			{ dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
-		},
-		length = 5,
-	},
+        ["ForestLogs1"] = 
+        {
+            objects = 
+            { 
+                { dName = "WoodenLogA0", position = { x = 0, y = 0 } },
+                { dName = "WoodenLogA1", position = { x = 1.2, y = 0 } },
+            },
+            length = 5,
+        },
 
-	["RoombaL"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "RoombaL", position = { x = 4, y = 0 } },
-			{ dName = "CoinFloaty", position = { x = 0, y = 5 } },
-			{ dName = "CoinFloaty", position = { x = 1, y = 4 } },
-		},
-		length = 8;
-	},
+        ["RoombaL"] = 
+        {
+            objects = 
+            { 
+                { dName = "RoombaL", position = { x = 4, y = 0 } },
+                { dName = "CoinFloaty", position = { x = 0, y = 5 } },
+                { dName = "CoinFloaty", position = { x = 1, y = 4 } },
+            },
+            length = 8;
+        },
 
-	["RoombaR"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "RoombaL", position = { x = 4, y = 0 } },
-			{ dName = "CoinFloaty", position = { x = 3, y = 4 } },
-			{ dName = "CoinFloaty", position = { x = 4, y = 5 } },
-		},
-		length = 8;
-	},
+        ["RoombaR"] = 
+        {
+            objects = 
+            { 
+                { dName = "RoombaL", position = { x = 4, y = 0 } },
+                { dName = "CoinFloaty", position = { x = 3, y = 4 } },
+                { dName = "CoinFloaty", position = { x = 4, y = 5 } },
+            },
+            length = 8;
+        },
 
-	["1Crate"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "Crate", position = { x = 0, y = 0 } },
-		},
-		length = 1.27,
-	},
+        ["1Crate"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 0 } },
+            },
+            length = 1.27,
+        },
 
-	["4CratesLine"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "Crate", position = { x = 0, y = 0 } },
-			{ dName = "Crate", position = { x = 1.27, y = 0 } },
-			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
-			{ dName = "Crate", position = { x = 1.27 * 3, y = 0 } },
-		},
-		length = 1.27 * 4 + 2;
-	},
+        ["4CratesLine"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 0 } },
+                { dName = "Crate", position = { x = 1.27, y = 0 } },
+                { dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
+                { dName = "Crate", position = { x = 1.27 * 3, y = 0 } },
+            },
+            length = 1.27 * 4 + 2;
+        },
 
-	["4CratesTetris"] = 
-	{
-		objects = 
-		{ 
-			{ dName = "Crate", position = { x = 0, y = 0 } },
-			{ dName = "Crate", position = { x = 1.27, y = 0 } },
-			{ dName = "Crate", position = { x = 1.27, y = 1.24 } },
-			{ dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
-		},
-		length = 1.27 * 4,
-	},
-};
+        ["4CratesTetris"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 0 } },
+                { dName = "Crate", position = { x = 1.27, y = 0 } },
+                { dName = "Crate", position = { x = 1.27, y = 1.24 } },
+                { dName = "Crate", position = { x = 1.27 * 2, y = 0 } },
+            },
+            length = 1.27 * 4,
+        },
+
+        ["ProblemWithCollision"] = 
+        {
+            objects = 
+            { 
+                { dName = "Crate", position = { x = 0, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27 * 2, y = 1.27 * 3 } },
+                { dName = "Crate", position = { x = 1.27 * 3, y = 1.27 * 2 } },
+                { dName = "CoinStatic", position = { x = 1.27 * 2, y = 5.5 } },
+            },
+            length = 1.27 * 4;
+        }
+        
+    };
+end
 
 Game.CharacterDisplayIDs = 
 { 
@@ -609,7 +627,7 @@ Environment.Definitions =
 			spread = 5,
 			camPos = {-50, -5, 5},						-- Camera position in 3D space
 			fogColor = {0.1, 0.1, 0.1},
-			fogFar = 50,
+			fogFar = 1000,
 			fogNear = 10,
 			count = 50,
 			fDefs = {
@@ -1036,9 +1054,10 @@ function LevelGenerator.SpawnPuzzle()
 	-- local puzzles = { "1Empty" };
 	-- local puzzles = { "CoinTest", "4Empty" };
 	-- local puzzles = { "RoofSlideTest" };
+    local puzzles = { "ProblemWithCollision" };
 
 	-- some puzzles for testing
-	local puzzles = { "ForestLogs1", "ForestLogs0", "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "RoofSlideTest","RoofTest", "CoinTest", "RoombaL", "RoombaR" };
+	--local puzzles = { "ForestLogs1", "ForestLogs0", "1Empty", "1Crate", "4CratesLine", "4CratesTetris", "RoofSlideTest","RoofTest", "CoinTest", "RoombaL", "RoombaR" };
 	local pick = floor(Game.Random() * #puzzles) + 1;
 	local puzzle = Game.Puzzles[puzzles[pick]];
 
@@ -1750,8 +1769,8 @@ function UI.CreateLogo()
 	UI.Logo.scene:SetCameraFarClip(5000);
 	UI.Logo.scene:SetLightDirection(0.5, 1, -1);
 	UI.Logo.scene:SetCameraFieldOfView(rad(90));
-	UI.Logo.scene:SetFogFar(100);
-	UI.Logo.scene:SetFogNear(20);
+	--UI.Logo.scene:SetFogFar(100); -- 9.1.5 broke model scene fog
+	--UI.Logo.scene:SetFogNear(20);
 	UI.Logo.scene:SetFogColor(0,0,0);
 	UI.Logo.scene:Hide();
 
@@ -1813,10 +1832,10 @@ function UI.CreateLogoText()
 	UI.Logo.TextHolder:SetFrameStrata("HIGH");
 	UI.Logo.TextHolder:SetFrameLevel(1000);
     UI.Logo.TextHolder:SetSize(1000, 1000);
-	UI.Logo.Text[1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1);
-	UI.Logo.Text[2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1);
-	UI.Logo.Text[-1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0);
-	UI.Logo.Text[-2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0);
+	UI.Logo.Text[1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1, nil, 1002);
+	UI.Logo.Text[2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1, 1, 1, 1, nil,  1002);
+	UI.Logo.Text[-1] = FX.Text.CreateWord("PET", 0, 0, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0, nil, 1001);
+	UI.Logo.Text[-2] = FX.Text.CreateWord("ESCAPE", -45, -40, UI.Logo.TextHolder, 0.8, 1.1, 0, 0, 0, nil, 1001);
 	UI.Logo.TextHolder:SetScale(1);
 end
 
@@ -1833,8 +1852,8 @@ function UI.MainMenu.CreateButton(name, action, x, y, w, h)
 	btn.button:SetScript('OnMouseUp', action);
 	btn.button:SetScript('OnEnter', function() btn.button:SetFrameLevel(1202) btn.button:SetScale(2) btn.button:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", x, y / 2) end);
 	btn.button:SetScript('OnLeave', function() btn.button:SetFrameLevel(1201) btn.button:SetScale(1) btn.button:SetPoint("CENTER", UI.MainMenu.buttonsHolder, "CENTER", x, y) end);
-	btn.text = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 1, 1, 1, "LEFT");
-	btn.shadowText = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 0, 0, 0, "LEFT");
+	btn.text = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 1, 1, 1, "LEFT", 1204);
+	btn.shadowText = FX.Text.CreateWord(name, 0, 0, btn.button , 1, 0.5, 0, 0, 0, "LEFT", 1203);
 	return btn;
 end
 
@@ -1865,23 +1884,23 @@ end
 function UI.HUD.Create()
 	UI.HUD.texts = {};
 
-	local hudFrameLevel = 1101;
+	UI.HUD.FrameLevel = 1101;
 
 	-- Coins text
 	UI.HUD.coins = {};
 	UI.HUD.coins.frame = CreateFrame("Frame", "UI.HUD.coins.frame", Game.mainWindow);
 	UI.HUD.coins.frame:SetPoint("TOPLEFT", Game.mainWindow, "TOPLEFT", x, y);
 	UI.HUD.coins.frame:SetSize(100, 30);
-	UI.HUD.coins.frame:SetFrameLevel(hudFrameLevel);
-	UI.HUD.coins.text = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT");
-	UI.HUD.coins.shadowText = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT");
+	UI.HUD.coins.frame:SetFrameLevel(UI.HUD.FrameLevel);
+	UI.HUD.coins.shadowText = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 0, 0, 0, "LEFT", UI.HUD.FrameLevel + 1);
+	UI.HUD.coins.text = FX.Text.CreateWord(0, 100, 0, UI.HUD.coins.frame , 1, 0.3, 1, 1, 1, "LEFT", UI.HUD.FrameLevel + 2);
 	UI.HUD.texts[1] = UI.HUD.coins;	-- adding to be animated
 
 	-- Coin icon
 	UI.HUD.coinIconModel = CreateFrame("PlayerModel", "UI.HUD.coinIconModel", UI.HUD.coins.frame);
 	UI.HUD.coinIconModel:SetPoint("LEFT", UI.HUD.coins.frame, "LEFT", 0, 0);
     UI.HUD.coinIconModel:SetSize(40, 40);
-	UI.HUD.coinIconModel:SetFrameLevel(hudFrameLevel);
+	UI.HUD.coinIconModel:SetFrameLevel(UI.HUD.FrameLevel);
 	UI.HUD.coinIconModel:SetModel(916276);
 	UI.HUD.coinIconModel:SetPosition(0,0,0);
 	UI.HUD.coinIconModel:SetModelScale(1.5);
@@ -1931,8 +1950,8 @@ function UI.HUD.Animate()
 end
 
 function UI.HUD.SetCoins()
-	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.text);
-	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.shadowText);
+	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.text, UI.HUD.FrameLevel + 2);
+	FX.Text.SetWord(tostring(Game.matchCoins), UI.HUD.coins.shadowText, UI.HUD.FrameLevel + 1);
 end
 
 --------------------------------------
@@ -2148,7 +2167,7 @@ end
 --  Effects							--
 --------------------------------------
 
-function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
+function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point, level)
 	local sInfo = Game.FX.Symbols[symbol];
 	local s = {};
 	s = CreateFrame("Frame", "TextTestA", parent);
@@ -2156,6 +2175,7 @@ function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
 	s:SetHeight(40);
 	s:SetScale(scale);
 	s:SetPoint(point, x, y);
+    s:SetFrameLevel(level);
 	s.texture = s:CreateTexture("s","BACKGROUND")
 	s.texture:SetColorTexture(r, g, b);
 	s.texture:SetAllPoints(s);
@@ -2167,15 +2187,16 @@ function FX.Text.CreateSymbol(symbol, x, y, parent, scale, r, g, b, point)
 	return s;
 end
 
-function FX.Text.SetSymbol(symbol, s)
+function FX.Text.SetSymbol(symbol, s, level)
 	local sInfo = Game.FX.Symbols[symbol];
 	s:SetWidth(sInfo.fw);
+    s:SetFrameLevel(level);
 	s.mask:SetTexture(sInfo.fileID, "CLAMP", "CLAMP")
 	s.mask:SetSize(sInfo.w, sInfo.h);
 	s.mask:SetPoint("LEFT", sInfo.x, sInfo.y)
 end
 
-function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
+function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point, level)
 	word = string.upper(word)
 	if r == nil then r = 1 end
 	if g == nil then g = 1 end
@@ -2198,24 +2219,24 @@ function FX.Text.CreateWord(word, x, y, parent, spacing, scale, r, g, b, point)
 	local offs = 0;
 	for	i = 1, length, 1 do
 		local char = string.sub(word, i, i);
-		w[i] = FX.Text.CreateSymbol(char, x + offs, y, parent, scale, r, g, b, point);
+		w[i] = FX.Text.CreateSymbol(char, x + offs, y, parent, scale, r, g, b, point, level);
 		offs = offs + Game.FX.Symbols[char].fw * spacing;
 	end
 
 	return w;
 end
 
-function FX.Text.SetWord(word, w)
+function FX.Text.SetWord(word, w, level)
 	word = string.upper(word)
 	local offs = 0;
 	local wL = #w;
 	for	i = 1, #word, 1 do
 		local char = string.sub(word, i, i);
 		if i <= #w then
-			FX.Text.SetSymbol(char, w[i]);
+			FX.Text.SetSymbol(char, w[i], level);
 			w[i]:Show();
 		else
-			w[i] = FX.Text.CreateSymbol(char, w.x + (Game.FX.Symbols[char].fw * w.spacing * (i - 1)), w.y, w.parent, w.scale, w.r, w.g, w.b, w.point);
+			w[i] = FX.Text.CreateSymbol(char, w.x + (Game.FX.Symbols[char].fw * w.spacing * (i - 1)), w.y, w.parent, w.scale, w.r, w.g, w.b, w.point, level);
 		end
 	end
 
@@ -3441,13 +3462,26 @@ function Player.Update()
 end
 
 --------------------------------------
+--  Editor					        --
+--------------------------------------
+
+function Editor.CreateUI()
+    -- TODO : write a ui for puzzle generator, need to be able to pick from the list of available game objects and place them on screen
+end
+
+function Editor.Load()
+    UI.MainMenu.frame:Hide();
+    Editor.CreateUI();
+end
+
+--------------------------------------
 --  Initialization					--
 --------------------------------------
 
 function Game.Initialize()
-	-- Load Object definitions
-	-- Has to be done in a function at the start because some table values will reference functions
-	Game.CreateObjectDefinitions();
+	-- Load data
+	Game.CreateObjectDefinitions(); -- Has to be done in a function at the start because some table values will reference functions
+    Game.CreatePuzzleData();
 
 	-- Create all UI --
 	UI.Initialize();
@@ -3472,10 +3506,16 @@ function Game.Initialize()
 	Game.CreatePlayerInputFrame();
 
 	-- Debug init --
-	if Game.devMode == true then
+	if Game.devMode then
 		Game.mainWindow:Show();
-		Game.NewGame();
-		Canvas.DEBUG_CreateCaracterTrails();
+        if Game.debugDrawTrails then
+		    Canvas.DEBUG_CreateCaracterTrails();
+        end
+        if Game.runWithEditor then
+            Editor.Load();
+        else
+            Game.NewGame();
+        end
 	end
 
 	Game.initialized = true;
@@ -3498,8 +3538,10 @@ function Game.Update(self, elapsed)
 			LevelGenerator.Update();
 			Sound.Update();
 
-			if Game.devMode == true then
-				Canvas.DEBUG_UpdateCharacterTrails();
+			if Game.devMode then
+                if Game.debugDrawTrails then
+				    Canvas.DEBUG_UpdateCharacterTrails();
+                end
 				--Physics.DEBUG_UpdateColliderFrames()
 			end
 
