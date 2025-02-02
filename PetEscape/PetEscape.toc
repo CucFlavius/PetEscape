@@ -1,4 +1,4 @@
-## Interface: 90001
+## Interface: 110005, 110007
 ## Title: Pet Escape
 ## Notes: A mini-game
 ## Author: Zee (Songzee - Argent Dawn EU)
@@ -10,4 +10,4 @@
 ## X-License: GPL
 ## Version: 1.0
 
-Game.lua
+src\include.xml

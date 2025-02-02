@@ -1,0 +1,18 @@
+﻿<Ui>
+    <!-- PetEscape -->
+    <Script file="header.lua" />
+    <Script file="settings.lua" />
+    
+    <Script file="data/objectDefinitions.lua" />
+    <Script file="data/puzzleData.lua" />
+    <Script file="data/animationIDs.lua" />
+    <Script file="data/characterDisplayIDs.lua" />
+    <Script file="data/fonts.lua" />
+    <Script file="data/fxSymbols.lua" />
+    <Script file="data/environmentConstants.lua" />
+    <Script file="data/environmentDefinitions.lua" />
+    
+    <Script file="levelGenerator.lua" />
+    
+    <Script file="Game.lua" />
+</Ui>
